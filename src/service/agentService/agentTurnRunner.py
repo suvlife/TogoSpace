@@ -73,9 +73,9 @@ class AgentTurnRunner:
         self._current_room: ChatRoom | None = None
 
     def _base_metadata(self, **extra) -> AgentActivityMeta:
-        """构建活动记录 metadata，自动附加 room_id。"""
+        """构建活动记录 metadata，自动附加 task_room_id（本次 turn 所在的任务房间）。"""
         meta = AgentActivityMeta(
-            room_id=self._current_room.room_id if self._current_room is not None else None,
+            task_room_id=self._current_room.room_id if self._current_room is not None else None,
             **extra,
         )
         return meta

@@ -251,10 +251,10 @@ class TestAgentActivityService(ServiceTestCase):
         await self._reset()
         activity = await agentActivityService.add_activity(
             gt_agent=_fake_agent(), activity_type=AgentActivityType.LLM_INFER,
-            metadata=AgentActivityMeta(room_id=5, model="test-model"),
+            metadata=AgentActivityMeta(task_room_id=5, model="test-model"),
         )
         updated = await agentActivityService.update_activity_progress(activity.id, metadata_patch=AgentActivityMeta(final_prompt_tokens=100, model="override"))
-        assert updated.metadata["room_id"] == 5
+        assert updated.metadata["task_room_id"] == 5
         assert updated.metadata["model"] == "override"
         assert updated.metadata["final_prompt_tokens"] == 100
 

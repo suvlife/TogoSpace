@@ -37,7 +37,9 @@ class AgentActivityMeta:
 
     提供多种填充方法，避免手工拼 dict。序列化时自动排除 None 值。
     """
-    room_id: int | None = None
+    # 发起本次 turn 的任务房间 ID（agent 被调度执行所在的房间），
+    # 与 send_chat_msg 等工具的目标房间无关。
+    task_room_id: int | None = None
     model: str | None = None
     estimated_prompt_tokens: int | None = None
     # 流式进度
