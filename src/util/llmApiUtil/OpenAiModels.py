@@ -1,7 +1,7 @@
 from typing import Any, List, Optional
 from pydantic import BaseModel, Field, model_validator
 
-from constants import OpenaiApiRole
+from constants import OpenaiApiRole, ToolCategory
 from util.commonUtil import first_not_none
 
 
@@ -148,6 +148,7 @@ class OpenAIFunction(BaseModel):
 class OpenAITool(BaseModel):
     type: str = Field(default="function", description="工具类型")
     function: OpenAIFunction
+    category: Optional[ToolCategory] = Field(default=None, exclude=True, description="本地工具分类，仅内部使用")
 
 
 # ========== 响应侧辅助类 ==========

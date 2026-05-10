@@ -23,6 +23,12 @@ def python_type_to_json_schema(python_type: Any) -> Dict[str, Any]:
     if get_origin(python_type) is Literal:
         return {"enum": list(get_args(python_type))}
 
+    origin = get_origin(python_type)
+    if origin is list:
+        return {"type": "array"}
+    if origin is dict:
+        return {"type": "object"}
+
     type_mapping = {
         str: {"type": "string"},
         int: {"type": "integer"},
@@ -84,6 +90,7 @@ def get_function_metadata(func_name: str, func) -> Dict[str, Any]:
     return {
         "name": func_name,
         "description": description,
+        "category": getattr(func, "tool_category", None),
         "parameters": {
             "type": "object",
             "properties": properties,
@@ -107,7 +114,8 @@ def build_tools(registry: dict) -> list[llmApiUtil.OpenAITool]:
                         properties=metadata["parameters"]["properties"],
                         required=metadata["parameters"].get("required", [])
                     )
-                )
+                ),
+                category=metadata.get("category"),
             )
             tools.append(tool)
             logger.info(f"加载工具函数: name={func_name}")

@@ -118,6 +118,13 @@ class RoleTemplateType(EnhanceEnum):
     USER = "user"       # 运行时由后台创建
 
 
+class ToolCategory(EnhanceEnum):
+    ADMIN = auto()
+    READ = auto()
+    WRITE = auto()
+    EXECUTE = auto()
+
+
 class SystemConfigKey(EnhanceEnum):
     """系统配置项的 key 枚举。"""
     # DB 中 key 字段是稳定字符串，不使用 auto()。

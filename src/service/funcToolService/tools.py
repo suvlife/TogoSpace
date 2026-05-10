@@ -4,14 +4,30 @@ import datetime
 import logging
 from zoneinfo import ZoneInfo
 
-from constants import AgentStatus, RoomState, SpecialAgent
-from dal.db import gtAgentManager, gtRoomManager
+from constants import AgentStatus, RoleTemplateType, RoomState, SpecialAgent, ToolCategory
+from dal.db import gtAgentManager, gtRoomManager, gtRoleTemplateManager
+from model.dbModel.gtAgent import GtAgent
 from model.dbModel.gtDept import GtDept
+from model.dbModel.gtRoleTemplate import GtRoleTemplate
 from service.roomService import ToolCallContext
 import service.roomService as roomService
 from util import configUtil, i18nUtil
 
 logger = logging.getLogger(__name__)
+
+TOOL_CATEGORIES: dict[str, ToolCategory] = {
+    "get_time": ToolCategory.READ,
+    "get_dept_info": ToolCategory.READ,
+    "get_room_info": ToolCategory.READ,
+    "get_agent_info": ToolCategory.READ,
+    "wake_up_agent": ToolCategory.EXECUTE,
+    "send_chat_msg": ToolCategory.WRITE,
+    "finish_chat_turn": ToolCategory.EXECUTE,
+    "list_role_templates": ToolCategory.READ,
+    "get_role_template": ToolCategory.READ,
+    "save_role_template": ToolCategory.ADMIN,
+    "delete_role_template": ToolCategory.ADMIN,
+}
 
 # Tool 返回值规范
 # 所有 tool 函数统一返回 dict，由 funcToolService.run_tool_call 序列化为 JSON 字符串后交给 LLM。
@@ -111,6 +127,13 @@ def _truncate_error_message(message: str | None, limit: int = 100) -> str:
     if len(message) <= limit:
         return message
     return message[:limit].rstrip() + "..."
+
+
+def _serialize_role_template(template: GtRoleTemplate, *, include_soul: bool) -> dict[str, Any]:
+    result = template.to_json()
+    if not include_soul:
+        result.pop("soul", None)
+    return result
 
 
 async def get_dept_info(dept_id: Optional[int] = None, _context: ToolCallContext = None) -> dict:
@@ -271,6 +294,119 @@ async def wake_up_agent(agent_name: str, _context: ToolCallContext = None) -> di
     return {"success": True, "message": f"已成功唤醒 {agent_name}，该成员将重新进入调度循环。"}
 
 
+async def list_role_templates(_context: ToolCallContext = None) -> dict:
+    """查询全部角色模板列表。
+
+    返回精简字段，不包含 soul；display_name 从 i18n.display_name 解析。
+    """
+    templates = await gtRoleTemplateManager.get_all_role_templates()
+    return {
+        "success": True,
+        "role_templates": [_serialize_role_template(template, include_soul=False) for template in templates],
+    }
+
+
+async def get_role_template(role_name: str, _context: ToolCallContext = None) -> dict:
+    """按名称查询单个角色模板详情。
+
+    Args:
+        role_name: 角色模板名称
+    """
+    template = await gtRoleTemplateManager.get_role_template_by_name(role_name.strip())
+    if template is None:
+        return {"success": False, "message": f"未找到角色模板: {role_name}"}
+    return {"success": True, "role_template": _serialize_role_template(template, include_soul=True)}
+
+
+async def save_role_template(
+    name: str,
+    type: str,
+    soul: str,
+    allowed_tools: list,
+    model: str | None = None,
+    i18n: dict | None = None,
+    _context: ToolCallContext = None,
+) -> dict:
+    """创建或更新角色模板。
+
+    Args:
+        name: 角色模板名称（按名称 upsert）
+        type: 角色模板类型，仅允许 SYSTEM 或 USER
+        soul: 角色模板提示词
+        allowed_tools: 可见工具列表
+        model: 可选模型覆盖
+        i18n: 可选多语言数据，支持 display_name
+    """
+    from service import roleTemplateService
+
+    normalized_name = name.strip()
+    if not normalized_name:
+        return {"success": False, "message": "角色模板名称不能为空。"}
+
+    role_type = RoleTemplateType.value_of(type)
+    if role_type is None:
+        return {"success": False, "message": "角色模板 type 只允许 SYSTEM 或 USER。"}
+
+    existing = await gtRoleTemplateManager.get_role_template_by_name(normalized_name)
+    if existing is None and role_type == RoleTemplateType.SYSTEM:
+        return {"success": False, "message": "SYSTEM 角色模板不允许通过工具创建。"}
+    if existing is not None and existing.type == RoleTemplateType.SYSTEM:
+        return {"success": False, "message": f"SYSTEM 角色模板 {normalized_name} 不允许通过工具修改。"}
+
+    saved = await roleTemplateService.save_role_template(
+        GtRoleTemplate(
+            name=normalized_name,
+            model=model,
+            soul=soul,
+            type=role_type,
+            allowed_tools=[str(item) for item in allowed_tools] if allowed_tools is not None else None,
+            i18n=i18n or {},
+        )
+    )
+    action = "更新" if existing is not None else "创建"
+    return {
+        "success": True,
+        "message": f"已{action}角色模板 {normalized_name}。",
+        "role_template": _serialize_role_template(saved, include_soul=True),
+    }
+
+
+async def delete_role_template(role_name: str, _context: ToolCallContext = None) -> dict:
+    """按名称删除角色模板。
+
+    Args:
+        role_name: 角色模板名称
+    """
+    normalized_name = role_name.strip()
+    template = await gtRoleTemplateManager.get_role_template_by_name(normalized_name)
+    if template is None:
+        return {"success": False, "message": f"未找到角色模板: {role_name}"}
+    if template.type == RoleTemplateType.SYSTEM:
+        return {"success": False, "message": f"SYSTEM 角色模板 {template.name} 不允许通过工具删除。"}
+
+    referenced_agents = list(
+        await GtAgent.select()
+        .where(GtAgent.role_template_id == template.id)
+        .order_by(GtAgent.team_id, GtAgent.name)
+        .aio_execute()
+    )
+    if referenced_agents:
+        agents = [{"name": agent.name, "team_id": agent.team_id} for agent in referenced_agents]
+        agent_names = ", ".join(agent["name"] for agent in agents)
+        return {
+            "success": False,
+            "message": f"角色模板 {template.name} 正在被以下 Agent 使用，无法删除: {agent_names}",
+            "agents": agents,
+        }
+
+    await gtRoleTemplateManager.delete_role_template(template.id)
+    return {
+        "success": True,
+        "message": f"已删除角色模板 {template.name}。",
+        "role_template": {"id": template.id, "name": template.name},
+    }
+
+
 async def send_chat_msg(room_name: str, msg: str, _context: ToolCallContext = None) -> dict:
     """向聊天窗口发送消息
 
@@ -361,4 +497,13 @@ FUNCTION_REGISTRY: dict[str, Callable[..., dict] | Callable[..., object]] = {
     "get_room_info": get_room_info,
     "get_agent_info": get_agent_info,
     "wake_up_agent": wake_up_agent,
+    "list_role_templates": list_role_templates,
+    "get_role_template": get_role_template,
+    "save_role_template": save_role_template,
+    "delete_role_template": delete_role_template,
 }
+
+for _tool_name, _tool_category in TOOL_CATEGORIES.items():
+    _func = FUNCTION_REGISTRY.get(_tool_name)
+    if _func is not None:
+        setattr(_func, "tool_category", _tool_category)

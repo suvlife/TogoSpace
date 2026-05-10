@@ -79,6 +79,10 @@ class TestPythonTypeToJsonSchema(ServiceTestCase):
         """Optional[T] 退化到 T 的 schema。"""
         assert python_type_to_json_schema(Optional[str]) == {"type": "string"}
 
+    async def test_optional_list_str(self):
+        """Optional[list[str]] 应映射为 array。"""
+        assert python_type_to_json_schema(Optional[list[str]]) == {"type": "array"}
+
     async def test_unknown_falls_back_to_object(self):
         """未知类型默认回退为 object，保证 schema 可生成。"""
         class Custom:
@@ -105,8 +109,6 @@ class TestGetFunctionMetadata(ServiceTestCase):
         props = get_function_metadata("send_chat_msg", send_chat_msg)["parameters"]["properties"]
         assert "_context" not in props
 
-
-
 class TestBuildtools(ServiceTestCase):
     async def test_builds_tool_for_each_entry(self):
         """注册表中每个函数都应产出一个 OpenAITool 定义。"""
@@ -121,8 +123,6 @@ class TestBuildtools(ServiceTestCase):
     async def test_skips_function_with_error(self):
         """构建过程中单个函数异常不影响其他函数。"""
         assert len(build_tools({"get_time": get_time})) == 1
-
-
 
 class TestToolFunctions(ServiceTestCase):
     @classmethod
