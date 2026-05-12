@@ -277,7 +277,7 @@ async def test_tsp_driver_respects_local_tool_names(mock_tsp_host: MagicMock) ->
         driver = TspAgentDriver(mock_tsp_host, config)
 
     get_tools.assert_called_once()
-    assert list(driver._local_tools) == ["get_time", "send_chat_msg", "finish_chat_turn"]
+    assert [t.function.name for t in driver._local_tools] == ["get_time", "send_chat_msg", "finish_chat_turn"]
 
     driver._client = MagicMock()
     driver._tsp_tools = {}

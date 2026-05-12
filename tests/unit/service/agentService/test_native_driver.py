@@ -70,7 +70,7 @@ async def test_native_driver_setup_registers_tools(
     assert "finish_chat_turn" in setup.hint_prompt
 
     exported_names = [t.function.name for t in mock_host.tool_registry.export_openai_tools()]
-    assert exported_names == ["send_chat_msg", "finish_chat_turn", "wake_up_agent"]
+    assert exported_names == ["send_chat_msg", "finish_chat_turn", "wake_up_agent", "get_time"]
     get_tools.assert_called_once()
 
     run_tool_call.assert_called_once()
@@ -110,4 +110,4 @@ async def test_native_driver_ignores_local_tool_names_and_uses_basic_category(mo
 
     get_tools.assert_called_once()
     exported_names = [t.function.name for t in mock_host.tool_registry.export_openai_tools()]
-    assert exported_names == ["send_chat_msg", "finish_chat_turn", "wake_up_agent"]
+    assert exported_names == ["send_chat_msg", "finish_chat_turn", "wake_up_agent", "get_time"]
