@@ -34,14 +34,11 @@ class TestfuncToolServiceInit(ServiceTestCase):
     async def test_init_loads_tools(self):
         """startup 后工具注册表应非空。"""
         assert len(funcToolService.get_tools()) > 0
-        assert all(tool.category for tool in funcToolService.get_tools())
 
-    async def test_tool_category_is_not_serialized_to_openai_payload(self):
-        """category 仅供内部使用，不应出现在发给上游模型的 tool payload 中。"""
+    async def test_tool_category_is_none_before_registration(self):
+        """在 funcToolService 层级，工具 category 默认为 None。"""
         tool = next(item for item in funcToolService.get_tools() if item.function.name == "get_time")
-        dumped = tool.model_dump(exclude_none=True)
-        assert tool.category == ToolCategory.READ
-        assert "category" not in dumped
+        assert tool.category is None
 
     async def test_close_clears_tools(self):
         """shutdown 后工具注册表应被清空。"""

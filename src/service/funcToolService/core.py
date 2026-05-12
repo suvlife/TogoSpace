@@ -6,7 +6,6 @@ from typing import Any, Iterable, Optional
 from constants import ToolCategory
 from util import llmApiUtil
 from service.roomService import ToolCallContext
-from .toolConfig import CATEGORY_CONFIG
 from .funcToolType import FuncTool
 from .tools import (
     delete_role_template,
@@ -50,7 +49,7 @@ def load_func_tools() -> dict[str, FuncTool]:
     }
     _func_tools = {}
     for name, func in _registry.items():
-        _func_tools[name] = FuncTool(name, func, CATEGORY_CONFIG.get(name))
+        _func_tools[name] = FuncTool(name, func)
     return _func_tools
 
 
@@ -70,89 +69,13 @@ def get_tools() -> list[llmApiUtil.OpenAITool]:
 
 def get_tools_by_names(
     names: list[str],
-    *,
-    category_list: set[ToolCategory] | None = None,
 ) -> list[llmApiUtil.OpenAITool]:
-    """根据名称列表从注册表构建并返回对应工具的 schema 列表。
-    若指定 category_list，则仅返回属于这些类别的工具。
-    """
+    """根据名称列表从注册表构建并返回对应工具的 schema 列表。"""
     return build_tools([
         _func_tools[name]
         for name in names
-        if name in _func_tools and (
-            category_list is None or CATEGORY_CONFIG.get(name) in category_list
-        )
+        if name in _func_tools
     ])
-
-
-def build_effective_tool_allow_specs(
-    allowed_tools: list[str] | None,
-    *,
-    is_root_leader: bool,
-    default_enable_all: bool,
-) -> list[str]:
-    """根据 allowed_tools 和角色构建实际生效的工具规格列表。"""
-    if allowed_tools is None:
-        effective_specs = (
-            ["Category:Basic", "Category:Read", "Category:Write", "Category:Execute"]
-            if default_enable_all else
-            ["Category:Basic"]
-        )
-    else:
-        effective_specs = list(allowed_tools)
-
-    if is_root_leader:
-        if "Category:Admin" not in effective_specs:
-            effective_specs.append("Category:Admin")
-        return effective_specs
-
-    filtered_specs: list[str] = []
-    for spec in effective_specs:
-        category = ToolCategory.from_spec(spec)
-        if category == ToolCategory.ADMIN:
-            continue
-        if CATEGORY_CONFIG.get(spec) == ToolCategory.ADMIN:
-            continue
-        filtered_specs.append(spec)
-    return filtered_specs
-
-
-def resolve_enabled_tool_names(
-    tool_names: Iterable[str],
-    allow_specs: list[str],
-) -> list[str]:
-    """根据 allow_specs 从 tool_names 中解析出实际启用的工具名列表。"""
-    ordered_names = list(tool_names)
-    categories = {ToolCategory.BASIC}
-    explicit_names: set[str] = set()
-
-    for spec in allow_specs:
-        category = ToolCategory.from_spec(spec)
-        if category is not None:
-            categories.add(category)
-            continue
-        if spec in ordered_names:
-            explicit_names.add(spec)
-
-    resolved = [t.function.name for t in get_tools_by_names(ordered_names, category_list=categories)]
-    for tool_name in ordered_names:
-        if tool_name in explicit_names and tool_name not in resolved:
-            resolved.append(tool_name)
-    return resolved
-
-
-def filter_external_allowed_tools(allowed_tools: list[str] | None) -> list[str] | None:
-    """从 allowed_tools 中过滤掉类别规格和已知本地工具名，返回纯外部工具列表。"""
-    if allowed_tools is None:
-        return None
-    filtered: list[str] = []
-    for spec in allowed_tools:
-        if ToolCategory.from_spec(spec) is not None:
-            continue
-        if spec in CATEGORY_CONFIG:
-            continue
-        filtered.append(spec)
-    return filtered
 
 
 

@@ -16,18 +16,22 @@ from service.funcToolService.core import (
     load_func_tools,
     get_tools,
     build_tools,
-    filter_external_allowed_tools,
-    build_effective_tool_allow_specs,
-    resolve_enabled_tool_names,
+)
+from service.agentService.toolRegistry import (
+    CATEGORY_CONFIG,
+    build_runtime_allow_specs,
+    AgentToolRegistry,
 )
 from service.funcToolService.funcToolType import FuncTool
 from service.funcToolService.funcToolType import get_function_metadata, python_type_to_json_schema
-from service.funcToolService.toolConfig import CATEGORY_CONFIG
 from service.funcToolService.tools import (
     delete_role_template,
     get_role_template,
     list_role_templates,
     save_role_template,
+    wake_up_agent,
+    send_chat_msg,
+    finish_chat_turn,
 )
 from ...base import ServiceTestCase
 
@@ -60,10 +64,10 @@ class TestRoleTemplateToolMetadata(ServiceTestCase):
     async def test_role_template_tools_build(self) -> None:
         """role template 工具应能构建为 OpenAITool 定义。"""
         tools = build_tools([
-            FuncTool("list_role_templates", list_role_templates, ToolCategory.ADMIN),
-            FuncTool("get_role_template", get_role_template, ToolCategory.ADMIN),
-            FuncTool("save_role_template", save_role_template, ToolCategory.ADMIN),
-            FuncTool("delete_role_template", delete_role_template, ToolCategory.ADMIN),
+            FuncTool("list_role_templates", list_role_templates),
+            FuncTool("get_role_template", get_role_template),
+            FuncTool("save_role_template", save_role_template),
+            FuncTool("delete_role_template", delete_role_template),
         ])
         assert {tool.function.name for tool in tools} == {
             "list_role_templates",
@@ -72,14 +76,16 @@ class TestRoleTemplateToolMetadata(ServiceTestCase):
             "delete_role_template",
         }
 
-    async def test_role_template_tool_metadata_exposes_category(self) -> None:
-        """工具元数据应带上 category。"""
-        list_metadata = get_function_metadata("list_role_templates", list_role_templates)
-        detail_metadata = get_function_metadata("get_role_template", get_role_template)
-        metadata = get_function_metadata("save_role_template", save_role_template)
-        assert list_metadata["category"] == ToolCategory.ADMIN
-        assert detail_metadata["category"] == ToolCategory.ADMIN
-        assert metadata["category"] == ToolCategory.ADMIN
+    async def test_role_template_tool_metadata_category_via_registry(self) -> None:
+        """工具分类应通过 AgentToolRegistry 补齐。"""
+        registry = AgentToolRegistry()
+        for t in get_tools():
+            registry.register(t, lambda x, y: None)
+        
+        list_tool = registry.get_registered_tool("list_role_templates")
+        save_tool = registry.get_registered_tool("save_role_template")
+        assert list_tool.category == ToolCategory.ADMIN
+        assert save_tool.category == ToolCategory.ADMIN
 
     async def test_all_local_tools_define_category(self) -> None:
         """每个本地工具都应声明 category。"""
@@ -106,32 +112,31 @@ class TestRoleTemplateToolMetadata(ServiceTestCase):
         assert CATEGORY_CONFIG["process_list"] == ToolCategory.EXECUTE
 
     async def test_category_spec_helpers(self) -> None:
-        """Category:Read 这类写法应能正确展开本地工具，并过滤外部 allowlist。"""
+        """Category:Read 这类写法应能正确展开本地工具。运行时不再执行过滤（交给保存时校验）。"""
         load_func_tools()
         assert ToolCategory.from_spec("Category:Read") == ToolCategory.READ
         assert ToolCategory.from_spec("category:admin") == ToolCategory.ADMIN
-        assert filter_external_allowed_tools(["Read", "Category:Read", "get_time"]) == ["Read"]
 
-        tool_names = [t.function.name for t in get_tools()]
-        normal_tools = resolve_enabled_tool_names(
-            tool_names,
-            build_effective_tool_allow_specs(
-                ["Category:Read", "Category:Admin", "save_role_template"],
+        registry = AgentToolRegistry()
+        for t in get_tools():
+            registry.register(t, lambda x, y: None)
+
+        read_tools = registry.resolve_enabled_tool_names(
+            build_runtime_allow_specs(
+                ["Category:Read"],
                 is_root_leader=False,
-                default_enable_all=True,
             ),
         )
-        root_tools = resolve_enabled_tool_names(
-            tool_names,
-            build_effective_tool_allow_specs(
+        root_tools = registry.resolve_enabled_tool_names(
+            build_runtime_allow_specs(
                 ["Category:Read"],
                 is_root_leader=True,
-                default_enable_all=True,
             ),
         )
 
-        assert "get_time" in normal_tools
-        assert "save_role_template" not in normal_tools
+        assert "get_time" in read_tools
+        assert "save_role_template" not in read_tools
+        # root leader 自动补齐 admin 分类
         assert "save_role_template" in root_tools
 
 
@@ -213,6 +218,28 @@ class TestRoleTemplateTools(ServiceTestCase):
         assert detail.allowed_tools == ["get_time", "get_room_info"]
         assert detail.model == "gpt-4.1"
         assert detail.i18n["display_name"]["zh-CN"] == "高级写手"
+
+    async def test_save_role_template_rejects_admin_tools(self) -> None:
+        """save_role_template 应拒绝包含管理员工具或类别的配置。"""
+        # 1. 拒绝 Category:Admin
+        result_cat = await save_role_template(
+            name="hacker",
+            type="USER",
+            soul="try to get admin",
+            allowed_tools=["Category:Admin"],
+        )
+        assert result_cat["success"] is False
+        assert "不允许分配管理员类别权限" in result_cat["message"]
+
+        # 2. 拒绝具体的 ADMIN 工具
+        result_tool = await save_role_template(
+            name="hacker2",
+            type="USER",
+            soul="try to get admin tool",
+            allowed_tools=["save_role_template"],
+        )
+        assert result_tool["success"] is False
+        assert "不允许分配管理员工具权限" in result_tool["message"]
 
     async def test_save_role_template_rejects_invalid_type(self) -> None:
         """非法 type 应被工具层拒绝。"""

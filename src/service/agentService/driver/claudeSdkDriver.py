@@ -11,19 +11,29 @@ from claude_agent_sdk import (
 
 from service.roomService import ToolCallContext, ChatRoom
 from service.agentService import promptBuilder
-from service.funcToolService.core import get_func_tool, load_func_tools
 from service.funcToolService.funcToolType import get_function_metadata
-from service.funcToolService.core import build_effective_tool_allow_specs
-from service.funcToolService.core import filter_external_allowed_tools
+from service.agentService.toolRegistry import build_runtime_allow_specs
 from service import funcToolService, roomService
 from model.dbModel.gtAgentTask import GtAgentTask
 from model.dbModel.gtAgentHistory import GtAgentHistory
-from constants import AgentHistoryStatus, OpenaiApiRole
+from constants import AgentHistoryStatus, OpenaiApiRole, ToolCategory
 from util import llmApiUtil
 
 from .base import AgentDriver, AgentTurnSetup
 
 logger = logging.getLogger(__name__)
+
+
+def _filter_category(allowed_tools: list[str] | None) -> list[str] | None:
+    """从 allowed_tools 中过滤掉类别规格，返回纯工具名列表。"""
+    if allowed_tools is None:
+        return None
+    filtered: list[str] = []
+    for spec in allowed_tools:
+        if ToolCategory.from_spec(spec) is not None:
+            continue
+        filtered.append(spec)
+    return filtered
 
 _HINT_PROMPT = (
     "你必须通过调用工具来行动。如果你不需要发言，或者已经完成了所有行动，请务必调用 finish_chat_turn 结束本轮（即跳过）。直接输出的文字不会出现在聊天室里。"
@@ -71,7 +81,7 @@ class ClaudeSdkAgentDriver(AgentDriver):
         tool_allow_specs = self.config.options.get("tool_allow_specs")
         if tool_allow_specs is None:
             return None
-        return filter_external_allowed_tools(tool_allow_specs)
+        return _filter_category(tool_allow_specs)
 
     @property
     def turn_setup(self) -> AgentTurnSetup:
@@ -79,7 +89,6 @@ class ClaudeSdkAgentDriver(AgentDriver):
 
     async def startup(self) -> None:
         await super().startup()
-        load_func_tools()
         self.host.tool_registry.clear()
         for t in funcToolService.get_tools():
             fn_name = t.function.name
@@ -92,10 +101,9 @@ class ClaudeSdkAgentDriver(AgentDriver):
         if configured_names:
             self.host.tool_registry._set_enabled_tool_names(list(configured_names))
         else:
-            effective_specs = build_effective_tool_allow_specs(
+            effective_specs = build_runtime_allow_specs(
                 self.config.options.get("tool_allow_specs"),
                 is_root_leader=bool(self.config.options.get("is_root_leader")),
-                default_enable_all=True,
             )
             self.host.tool_registry.apply_tool_allow_specs(effective_specs)
         local_tool_names = self.host.tool_registry.list_enabled_tool_names()
@@ -176,13 +184,12 @@ class ClaudeSdkAgentDriver(AgentDriver):
         return f"claude_sdk_{self._tool_call_counter}"
 
     def _build_claude_sdk_tool(self, tool_name: str) -> Any:
-        func_tool = get_func_tool(tool_name)
+        func_tool = funcToolService.get_func_tool(tool_name)
         if func_tool is None:
             raise KeyError(f"unknown func tool: {tool_name}")
         meta = get_function_metadata(
             tool_name,
             func_tool.callable,
-            category=func_tool.category,
         )
 
         @tool(tool_name, meta["description"], meta["parameters"])

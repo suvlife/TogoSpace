@@ -6,9 +6,7 @@ from dataclasses import dataclass
 from types import UnionType
 from typing import Any, Callable, Dict, Literal, Union, get_args, get_origin, get_type_hints
 
-from constants import ToolCategory
 from util import llmApiUtil
-from service.funcToolService.toolConfig import CATEGORY_CONFIG
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +47,7 @@ def python_type_to_json_schema(python_type: Any) -> Dict[str, Any]:
     return {"type": "object"}
 
 
-def get_function_metadata(func_name: str, func: Callable[..., Any], *, category: Any = None) -> Dict[str, Any]:
+def get_function_metadata(func_name: str, func: Callable[..., Any]) -> Dict[str, Any]:
     """使用 inspect 模块提取函数元数据"""
     sig = inspect.signature(func)
 
@@ -94,7 +92,6 @@ def get_function_metadata(func_name: str, func: Callable[..., Any], *, category:
     return {
         "name": func_name,
         "description": description,
-        "category": category if category is not None else getattr(func, "tool_category", CATEGORY_CONFIG.get(func_name)),
         "parameters": {
             "type": "object",
             "properties": properties,
@@ -107,11 +104,10 @@ def get_function_metadata(func_name: str, func: Callable[..., Any], *, category:
 class FuncTool:
     name: str
     callable: Callable[..., Any]
-    category: ToolCategory | None = None
 
     def to_openai_tool(self) -> llmApiUtil.OpenAITool:
         """将当前工具转换为 OpenAI 工具格式。"""
-        metadata = get_function_metadata(self.name, self.callable, category=self.category)
+        metadata = get_function_metadata(self.name, self.callable)
         return llmApiUtil.OpenAITool(
             function=llmApiUtil.OpenAIFunction(
                 name=metadata["name"],
@@ -122,5 +118,4 @@ class FuncTool:
                     required=metadata["parameters"].get("required", [])
                 )
             ),
-            category=metadata.get("category"),
         )

@@ -324,6 +324,7 @@ async def save_role_template(
         i18n: 可选多语言数据，支持 display_name
     """
     from service import roleTemplateService
+    from service.agentService.toolRegistry import validate_tool_allow_specs
 
     normalized_name = name.strip()
     if not normalized_name:
@@ -332,6 +333,12 @@ async def save_role_template(
     role_type = RoleTemplateType.value_of(type)
     if role_type is None:
         return {"success": False, "message": "角色模板 type 只允许 SYSTEM 或 USER。"}
+
+    # 校验工具权限，不允许非 root 权限分配管理员工具
+    specs = [str(item) for item in allowed_tools] if allowed_tools is not None else []
+    error_msg = validate_tool_allow_specs(specs)
+    if error_msg:
+        return {"success": False, "message": error_msg}
 
     existing = await gtRoleTemplateManager.get_role_template_by_name(normalized_name)
     if existing is None and role_type == RoleTemplateType.SYSTEM:

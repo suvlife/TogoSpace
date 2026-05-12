@@ -12,10 +12,8 @@ from pytspclient.types import TSP_ERROR_STDOUT_CLOSED, TSP_ERROR_CONNECTION_CLOS
 import appPaths
 from service.agentService.driver.base import AgentDriverConfig
 
-from service import funcToolService
-from service.funcToolService.core import load_func_tools, build_effective_tool_allow_specs
-from service.funcToolService.toolConfig import CATEGORY_CONFIG
-from service.roomService import ToolCallContext
+from service import funcToolService, roomService
+from service.agentService import toolRegistry
 from model.dbModel.gtAgentTask import GtAgentTask
 from util import llmApiUtil
 
@@ -59,9 +57,7 @@ class TspAgentDriver(AgentDriver):
         super().__init__(host, config)
         self._client: Optional[TSPClient] = None
         self._tsp_tools: dict[str, llmApiUtil.OpenAITool] = {}
-        load_func_tools()
-        _local:list[llmApiUtil.OpenAITool] = funcToolService.get_tools()
-        self._local_tools: dict[str, llmApiUtil.OpenAITool] = {t.function.name: t for t in _local}
+        self._local_tools: list[llmApiUtil.OpenAITool] = funcToolService.get_tools()
         self._connect_lock = asyncio.Lock()
 
         # 构建连接参数（用于首次连接和后续按需重连）
@@ -167,7 +163,8 @@ class TspAgentDriver(AgentDriver):
             raise RuntimeError(f"TSP client 尚未初始化: agent_id={self.host.gt_agent.id}")
         self.host.tool_registry.clear()
 
-        for function_name, tool in self._local_tools.items():
+        for tool in self._local_tools:
+            function_name = tool.function.name
             self.host.tool_registry.register(
                 tool,
                 funcToolService.run_tool_call,
@@ -184,11 +181,11 @@ class TspAgentDriver(AgentDriver):
             self.host.tool_registry._set_enabled_tool_names(list(configured_names))
             return
 
-        effective_specs = build_effective_tool_allow_specs(
+        effective_specs = toolRegistry.build_runtime_allow_specs(
             self.config.options.get("tool_allow_specs"),
             is_root_leader=bool(self.config.options.get("is_root_leader")),
-            default_enable_all=True,
         )
+
         self.host.tool_registry.apply_tool_allow_specs(effective_specs)
 
     @property
@@ -205,7 +202,7 @@ class TspAgentDriver(AgentDriver):
     async def _execute_tsp_tool(
         self,
         function_args: str,
-        context: ToolCallContext | None = None,
+        context: roomService.ToolCallContext | None = None,
     ) -> dict[str, Any]:
 
         # 确保连接，若断开则自动重连
@@ -255,7 +252,6 @@ class TspAgentDriver(AgentDriver):
                     description=tool.description,
                     parameters=llmApiUtil.OpenAIFunctionParameter(**tool.input_schema),
                 ),
-                category=CATEGORY_CONFIG.get(tool.name),
             )
 
         self._tsp_tools = resolved

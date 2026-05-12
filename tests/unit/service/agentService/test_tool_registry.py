@@ -3,8 +3,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from constants import ToolCategory
-from service.agentService.toolRegistry import AgentToolRegistry
-from service.funcToolService.core import build_effective_tool_allow_specs
+from service.agentService.toolRegistry import AgentToolRegistry, build_runtime_allow_specs
 from service.roomService import ToolCallContext
 from util import llmApiUtil
 
@@ -16,7 +15,6 @@ def _make_tool(name: str) -> llmApiUtil.OpenAITool:
             description="",
             parameters=llmApiUtil.OpenAIFunctionParameter(type="object", properties={}, required=[]),
         ),
-        category=ToolCategory.BASIC if name in {"send_chat_msg", "finish_chat_turn"} else ToolCategory.READ,
     )
 
 
@@ -27,7 +25,7 @@ def _register_tools(registry: AgentToolRegistry, *names: str) -> AsyncMock:
     return handler
 
 
-def test_build_effective_tool_allow_specs_filters_by_category_and_root_leader() -> None:
+def test_build_runtime_allow_specs_filters_by_category_and_root_leader() -> None:
     registry = AgentToolRegistry()
     _register_tools(
         registry,
@@ -38,18 +36,16 @@ def test_build_effective_tool_allow_specs_filters_by_category_and_root_leader() 
         "execute_bash",
     )
 
-    normal_specs = build_effective_tool_allow_specs(
+    normal_specs = build_runtime_allow_specs(
         ["Category:Read"],
         is_root_leader=False,
-        default_enable_all=True,
     )
     registry.apply_tool_allow_specs(normal_specs)
     assert registry.list_enabled_tool_names() == ["get_time", "send_chat_msg", "finish_chat_turn"]
 
-    root_specs = build_effective_tool_allow_specs(
+    root_specs = build_runtime_allow_specs(
         ["Category:Read"],
         is_root_leader=True,
-        default_enable_all=True,
     )
     registry.apply_tool_allow_specs(root_specs)
     assert registry.list_enabled_tool_names() == ["get_time", "send_chat_msg", "finish_chat_turn", "save_role_template"]
@@ -64,7 +60,7 @@ def test_registered_tool_keeps_category() -> None:
     assert registered.category == ToolCategory.BASIC
 
 
-def test_build_effective_tool_allow_specs_with_none_uses_driver_default_mode() -> None:
+def test_build_runtime_allow_specs_with_none_defaults_to_all_except_admin() -> None:
     registry = AgentToolRegistry()
     _register_tools(
         registry,
@@ -72,23 +68,21 @@ def test_build_effective_tool_allow_specs_with_none_uses_driver_default_mode() -
         "send_chat_msg",
         "finish_chat_turn",
         "execute_bash",
+        "save_role_template",
     )
 
-    basic_specs = build_effective_tool_allow_specs(
+    all_specs = build_runtime_allow_specs(
         None,
         is_root_leader=False,
-        default_enable_all=False,
-    )
-    registry.apply_tool_allow_specs(basic_specs)
-    assert registry.list_enabled_tool_names() == ["send_chat_msg", "finish_chat_turn"]
-
-    all_specs = build_effective_tool_allow_specs(
-        None,
-        is_root_leader=False,
-        default_enable_all=True,
     )
     registry.apply_tool_allow_specs(all_specs)
-    assert registry.list_enabled_tool_names() == ["get_time", "send_chat_msg", "finish_chat_turn", "execute_bash"]
+    # 默认应包含 Read, Write, Execute, Basic，但不包含 Admin (save_role_template)
+    enabled = registry.list_enabled_tool_names()
+    assert "get_time" in enabled
+    assert "send_chat_msg" in enabled
+    assert "finish_chat_turn" in enabled
+    assert "execute_bash" in enabled
+    assert "save_role_template" not in enabled
 
 
 @pytest.mark.asyncio

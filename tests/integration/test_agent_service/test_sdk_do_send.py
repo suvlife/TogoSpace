@@ -18,7 +18,7 @@ from service.agentService import promptBuilder
 from service.agentService.driver.claudeSdkDriver import ClaudeSdkAgentDriver
 from service.agentService.driver.base import AgentDriverConfig
 from service.funcToolService.core import get_tools
-from service.funcToolService.toolConfig import CATEGORY_CONFIG
+from service.agentService.toolRegistry import CATEGORY_CONFIG
 from constants import DriverType, RoleTemplateType, AgentTaskType, SpecialAgent, ToolCategory
 from util import llmApiUtil, configUtil
 from util.configTypes import TeamConfig, AgentConfig, DeptNodeConfig
@@ -179,6 +179,7 @@ class TestClaudeSdkAgentDriver(ServiceTestCase):
         await ormService.startup(db_path)
         await persistenceService.startup()
         await roomService.startup()
+        await funcToolService.startup()
         await presetService._import_role_templates_from_app_config()
         await presetService._import_team_from_config(TeamConfig(name=TEAM))
         await agentService.startup()
