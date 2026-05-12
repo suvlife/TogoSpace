@@ -115,13 +115,6 @@ def _truncate_error_message(message: str | None, limit: int = 100) -> str:
     return message[:limit].rstrip() + "..."
 
 
-def _serialize_role_template(template: GtRoleTemplate, *, include_soul: bool) -> dict[str, Any]:
-    result = template.to_json()
-    if not include_soul:
-        result.pop("soul", None)
-    return result
-
-
 async def get_dept_info(dept_id: Optional[int] = None, _context: ToolCallContext = None) -> dict:
     """查询部门信息。不传 dept_id 时返回整个团队部门树，传入时返回指定部门及其子树。
 
@@ -286,9 +279,15 @@ async def list_role_templates(_context: ToolCallContext = None) -> dict:
     返回精简字段，不包含 soul；display_name 从 i18n.display_name 解析。
     """
     templates = await gtRoleTemplateManager.get_all_role_templates()
+    role_templates = []
+    for t in templates:
+        data = t.to_json()
+        data.pop("soul", None)
+        role_templates.append(data)
+
     return {
         "success": True,
-        "role_templates": [_serialize_role_template(template, include_soul=False) for template in templates],
+        "role_templates": role_templates,
     }
 
 
@@ -301,7 +300,7 @@ async def get_role_template(role_name: str, _context: ToolCallContext = None) ->
     template = await gtRoleTemplateManager.get_role_template_by_name(role_name.strip())
     if template is None:
         return {"success": False, "message": f"未找到角色模板: {role_name}"}
-    return {"success": True, "role_template": _serialize_role_template(template, include_soul=True)}
+    return {"success": True, "role_template": template.to_json()}
 
 
 async def save_role_template(
@@ -361,7 +360,7 @@ async def save_role_template(
     return {
         "success": True,
         "message": f"已{action}角色模板 {normalized_name}。",
-        "role_template": _serialize_role_template(saved, include_soul=True),
+        "role_template": saved.to_json(),
     }
 
 
