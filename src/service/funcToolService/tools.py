@@ -507,7 +507,7 @@ async def save_dept(
         responsibility: 组织职责描述。
         manager_name: 负责人成员名。负责人若不在 member_names 中，将自动加入。
         member_names: 成员名称列表。全量覆盖，每次调用将完整替换现有成员列表。
-        parent_name: 父组织名称。省略或传 null 表示设为根组织（无父组织）。不能设置为自身或自身的子组织。
+        parent_name: 父组织名称。新建组织时必须指定；不能设置为自身或自身的子组织。更新已有根组织时可省略或传 null 以保持其根节点状态。
         i18n: 可选多语言数据。示例：{"dept_name": {"zh-CN": "研发部", "en": "R&D"}, "responsibility": {"zh-CN": "..."}}
         overwrite_existing: 是否允许覆盖已存在的同名组织。默认 false；为 true 时执行更新。
     """
@@ -575,6 +575,12 @@ async def save_dept(
                     if parent_dept.id in descendant_ids:
                         return {"success": False, "message": f"父组织 {normalized_parent} 是当前组织的子组织，不能形成循环引用。"}
             parent_id = parent_dept.id
+    else:
+        # parent_name=None：仅允许更新已是根节点的现有组织；新建时必须指定父组织
+        if existing is None:
+            return {"success": False, "message": "新建组织时必须指定父组织（parent_name）。如需创建根组织，请联系管理员通过组织树编辑器操作。"}
+        if existing.parent_id is not None:
+            return {"success": False, "message": f"组织 {normalized_name} 当前不是根组织，不能将父组织设为空。"}
 
     saved = await deptService.upsert_dept(
         team_id=team_id,

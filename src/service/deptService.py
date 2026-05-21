@@ -104,6 +104,15 @@ async def upsert_dept(
     - 将当前成员从其他部门移除（负责人可保留在父部门中）
     - 确保负责人出现在父部门成员列表中
     """
+    agent_rows = await gtAgentManager.get_team_agents_by_ids(team_id, agent_ids)
+    agent_map = {a.id: a for a in agent_rows}
+    missing = [aid for aid in agent_ids if aid not in agent_map]
+    if missing:
+        raise TogoException(
+            f"以下成员 ID 不存在于团队中: {missing}",
+            error_code="DEPT_AGENT_NOT_FOUND",
+        )
+
     all_depts = await gtDeptManager.get_all_depts(team_id)
     dept_map: dict[int, GtDept] = {d.id: d for d in all_depts if d.id is not None}
     members_set = set(agent_ids)
