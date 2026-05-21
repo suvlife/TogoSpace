@@ -576,13 +576,13 @@ async def save_dept(
                         return {"success": False, "message": f"父组织 {normalized_parent} 是当前组织的子组织，不能形成循环引用。"}
             parent_id = parent_dept.id
 
-    saved = await gtDeptManager.save_dept(
+    saved = await deptService.upsert_dept(
         team_id=team_id,
         name=normalized_name,
         responsibility=responsibility,
-        parent_id=parent_id,
         manager_id=manager_agent.id,
         agent_ids=resolved_ids,
+        parent_id=parent_id,
         dept_id=existing.id if existing is not None else None,
         i18n=i18n,
     )

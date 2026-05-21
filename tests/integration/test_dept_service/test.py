@@ -804,3 +804,266 @@ class TestDeptService(ServiceTestCase):
         await deptService.overwrite_dept_tree(team.id, root)
         dept = await gtDeptManager.get_dept_by_name(team.id, "engineering")
         assert dept is not None
+
+    # ------------------------------------------------------------------
+    # deptService.upsert_dept
+    # ------------------------------------------------------------------
+
+    async def test_upsert_dept_creates_new_dept(self):
+        """upsert_dept 可以创建新部门。"""
+        await self._reset_tables()
+
+        team = await self._setup_team_with_agents("t_upsert_create", ["alice", "bob"])
+        alice_id = await self._get_agent_id(team.id, "alice")
+        bob_id = await self._get_agent_id(team.id, "bob")
+
+        saved = await deptService.upsert_dept(
+            team_id=team.id,
+            name="eng",
+            responsibility="builds things",
+            manager_id=alice_id,
+            agent_ids=[alice_id, bob_id],
+            parent_id=None,
+        )
+
+        assert saved.name == "eng"
+        assert saved.manager_id == alice_id
+        assert set(saved.agent_ids) == {alice_id, bob_id}
+        assert saved.parent_id is None
+
+    async def test_upsert_dept_updates_existing_dept(self):
+        """upsert_dept 可以更新已有部门。"""
+        await self._reset_tables()
+
+        team = await self._setup_team_with_agents("t_upsert_update", ["alice", "bob", "charlie"])
+        alice_id = await self._get_agent_id(team.id, "alice")
+        bob_id = await self._get_agent_id(team.id, "bob")
+        charlie_id = await self._get_agent_id(team.id, "charlie")
+
+        first = await deptService.upsert_dept(
+            team_id=team.id,
+            name="eng",
+            responsibility="v1",
+            manager_id=alice_id,
+            agent_ids=[alice_id, bob_id],
+            parent_id=None,
+        )
+        updated = await deptService.upsert_dept(
+            team_id=team.id,
+            name="eng",
+            responsibility="v2",
+            manager_id=alice_id,
+            agent_ids=[alice_id, bob_id, charlie_id],
+            parent_id=None,
+            dept_id=first.id,
+        )
+
+        assert updated.id == first.id
+        assert updated.responsibility == "v2"
+        assert charlie_id in updated.agent_ids
+
+    async def test_upsert_dept_removes_member_from_other_dept(self):
+        """新部门成员若已在其他部门，应从其他部门移除。"""
+        await self._reset_tables()
+
+        team = await self._setup_team_with_agents("t_upsert_dedup", ["alice", "bob", "charlie"])
+        alice_id = await self._get_agent_id(team.id, "alice")
+        bob_id = await self._get_agent_id(team.id, "bob")
+        charlie_id = await self._get_agent_id(team.id, "charlie")
+
+        # 先建一个包含 bob 的部门
+        old_dept = await deptService.upsert_dept(
+            team_id=team.id,
+            name="old_dept",
+            responsibility="",
+            manager_id=alice_id,
+            agent_ids=[alice_id, bob_id],
+            parent_id=None,
+        )
+
+        # 新部门也包含 bob → bob 应从 old_dept 移除
+        await deptService.upsert_dept(
+            team_id=team.id,
+            name="new_dept",
+            responsibility="",
+            manager_id=charlie_id,
+            agent_ids=[charlie_id, bob_id],
+            parent_id=None,
+        )
+
+        refreshed = await gtDeptManager.get_dept_by_name(team.id, "old_dept")
+        assert refreshed is not None
+        assert bob_id not in refreshed.agent_ids
+
+    async def test_upsert_dept_manager_stays_in_parent_dept(self):
+        """负责人可以同时保留在父部门中，不被移除。"""
+        await self._reset_tables()
+
+        team = await self._setup_team_with_agents(
+            "t_upsert_mgr_parent", ["cto", "eng_lead", "dev_a"]
+        )
+        cto_id = await self._get_agent_id(team.id, "cto")
+        eng_lead_id = await self._get_agent_id(team.id, "eng_lead")
+        dev_a_id = await self._get_agent_id(team.id, "dev_a")
+
+        # 先建父部门，eng_lead 在其中
+        parent = await deptService.upsert_dept(
+            team_id=team.id,
+            name="company",
+            responsibility="",
+            manager_id=cto_id,
+            agent_ids=[cto_id, eng_lead_id],
+            parent_id=None,
+        )
+
+        # 建子部门，eng_lead 是负责人
+        await deptService.upsert_dept(
+            team_id=team.id,
+            name="engineering",
+            responsibility="",
+            manager_id=eng_lead_id,
+            agent_ids=[eng_lead_id, dev_a_id],
+            parent_id=parent.id,
+        )
+
+        # eng_lead 应仍在父部门
+        refreshed_parent = await gtDeptManager.get_dept_by_name(team.id, "company")
+        assert refreshed_parent is not None
+        assert eng_lead_id in refreshed_parent.agent_ids
+
+    async def test_upsert_dept_non_manager_removed_from_parent_dept(self):
+        """普通成员（非负责人）即使在父部门中，也应从父部门移除。"""
+        await self._reset_tables()
+
+        team = await self._setup_team_with_agents(
+            "t_upsert_non_mgr", ["cto", "eng_lead", "dev_a"]
+        )
+        cto_id = await self._get_agent_id(team.id, "cto")
+        eng_lead_id = await self._get_agent_id(team.id, "eng_lead")
+        dev_a_id = await self._get_agent_id(team.id, "dev_a")
+
+        # 父部门包含 dev_a
+        parent = await deptService.upsert_dept(
+            team_id=team.id,
+            name="company",
+            responsibility="",
+            manager_id=cto_id,
+            agent_ids=[cto_id, eng_lead_id, dev_a_id],
+            parent_id=None,
+        )
+
+        # 子部门将 dev_a 作为普通成员 → 应从父部门移除
+        await deptService.upsert_dept(
+            team_id=team.id,
+            name="engineering",
+            responsibility="",
+            manager_id=eng_lead_id,
+            agent_ids=[eng_lead_id, dev_a_id],
+            parent_id=parent.id,
+        )
+
+        refreshed_parent = await gtDeptManager.get_dept_by_name(team.id, "company")
+        assert refreshed_parent is not None
+        assert dev_a_id not in refreshed_parent.agent_ids
+
+    async def test_upsert_dept_auto_adds_manager_to_parent(self):
+        """负责人不在父部门时，应自动加入父部门成员列表。"""
+        await self._reset_tables()
+
+        team = await self._setup_team_with_agents(
+            "t_upsert_mgr_add", ["cto", "eng_lead", "dev_a"]
+        )
+        cto_id = await self._get_agent_id(team.id, "cto")
+        eng_lead_id = await self._get_agent_id(team.id, "eng_lead")
+        dev_a_id = await self._get_agent_id(team.id, "dev_a")
+
+        # 父部门不含 eng_lead
+        parent = await deptService.upsert_dept(
+            team_id=team.id,
+            name="company",
+            responsibility="",
+            manager_id=cto_id,
+            agent_ids=[cto_id],
+            parent_id=None,
+        )
+
+        # 子部门以 eng_lead 为负责人 → eng_lead 应被自动加入父部门
+        await deptService.upsert_dept(
+            team_id=team.id,
+            name="engineering",
+            responsibility="",
+            manager_id=eng_lead_id,
+            agent_ids=[eng_lead_id, dev_a_id],
+            parent_id=parent.id,
+        )
+
+        refreshed_parent = await gtDeptManager.get_dept_by_name(team.id, "company")
+        assert refreshed_parent is not None
+        assert eng_lead_id in refreshed_parent.agent_ids
+
+    async def test_upsert_dept_manager_not_duplicated_in_parent(self):
+        """负责人已在父部门时，不应重复添加。"""
+        await self._reset_tables()
+
+        team = await self._setup_team_with_agents(
+            "t_upsert_no_dup", ["cto", "eng_lead", "dev_a"]
+        )
+        cto_id = await self._get_agent_id(team.id, "cto")
+        eng_lead_id = await self._get_agent_id(team.id, "eng_lead")
+        dev_a_id = await self._get_agent_id(team.id, "dev_a")
+
+        parent = await deptService.upsert_dept(
+            team_id=team.id,
+            name="company",
+            responsibility="",
+            manager_id=cto_id,
+            agent_ids=[cto_id, eng_lead_id],
+            parent_id=None,
+        )
+
+        await deptService.upsert_dept(
+            team_id=team.id,
+            name="engineering",
+            responsibility="",
+            manager_id=eng_lead_id,
+            agent_ids=[eng_lead_id, dev_a_id],
+            parent_id=parent.id,
+        )
+
+        refreshed_parent = await gtDeptManager.get_dept_by_name(team.id, "company")
+        assert refreshed_parent is not None
+        assert refreshed_parent.agent_ids.count(eng_lead_id) == 1
+
+    async def test_upsert_dept_members_spread_across_depts_all_moved(self):
+        """来自多个不同部门的成员，全部应移入新部门。"""
+        await self._reset_tables()
+
+        team = await self._setup_team_with_agents(
+            "t_upsert_multi", ["alice", "bob", "charlie", "dave", "eve"]
+        )
+        alice_id = await self._get_agent_id(team.id, "alice")
+        bob_id = await self._get_agent_id(team.id, "bob")
+        charlie_id = await self._get_agent_id(team.id, "charlie")
+        dave_id = await self._get_agent_id(team.id, "dave")
+        eve_id = await self._get_agent_id(team.id, "eve")
+
+        await deptService.upsert_dept(
+            team_id=team.id, name="dept_a", responsibility="",
+            manager_id=alice_id, agent_ids=[alice_id, bob_id], parent_id=None,
+        )
+        await deptService.upsert_dept(
+            team_id=team.id, name="dept_b", responsibility="",
+            manager_id=charlie_id, agent_ids=[charlie_id, dave_id], parent_id=None,
+        )
+
+        # 新部门抢走 bob 和 dave
+        await deptService.upsert_dept(
+            team_id=team.id, name="dept_c", responsibility="",
+            manager_id=eve_id, agent_ids=[eve_id, bob_id, dave_id], parent_id=None,
+        )
+
+        dept_a = await gtDeptManager.get_dept_by_name(team.id, "dept_a")
+        dept_b = await gtDeptManager.get_dept_by_name(team.id, "dept_b")
+        assert dept_a is not None and dept_b is not None
+        assert bob_id not in dept_a.agent_ids
+        assert dave_id not in dept_b.agent_ids

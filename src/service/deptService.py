@@ -89,6 +89,76 @@ async def _overwrite_dept_subtree(
     return dept
 
 
+async def upsert_dept(
+    team_id: int,
+    name: str,
+    responsibility: str,
+    manager_id: int,
+    agent_ids: list[int],
+    parent_id: int | None,
+    dept_id: int | None = None,
+    i18n: dict | None = None,
+) -> GtDept:
+    """创建或更新单个部门，并处理跨部门成员冲突：
+
+    - 将当前成员从其他部门移除（负责人可保留在父部门中）
+    - 确保负责人出现在父部门成员列表中
+    """
+    all_depts = await gtDeptManager.get_all_depts(team_id)
+    dept_map: dict[int, GtDept] = {d.id: d for d in all_depts if d.id is not None}
+    members_set = set(agent_ids)
+
+    # 计算需要更新的其他部门
+    depts_to_update: dict[int, list[int]] = {}
+    for dept in all_depts:
+        if dept.id == dept_id:
+            continue
+        new_ids: list[int] = []
+        changed = False
+        for aid in dept.agent_ids:
+            if aid in members_set:
+                # 负责人可以保留在父部门，其余一律移除
+                if aid == manager_id and dept.id == parent_id:
+                    new_ids.append(aid)
+                else:
+                    changed = True
+            else:
+                new_ids.append(aid)
+        if changed:
+            depts_to_update[dept.id] = new_ids
+
+    # 确保负责人在父部门成员中
+    if parent_id is not None and parent_id in dept_map:
+        parent_ids = depts_to_update.get(parent_id, list(dept_map[parent_id].agent_ids))
+        if manager_id not in parent_ids:
+            depts_to_update[parent_id] = [manager_id] + parent_ids
+
+    # 批量保存受影响的其他部门
+    for affected_id, new_ids in depts_to_update.items():
+        affected = dept_map[affected_id]
+        await gtDeptManager.save_dept(
+            team_id=team_id,
+            name=affected.name,
+            responsibility=affected.responsibility,
+            parent_id=affected.parent_id,
+            manager_id=affected.manager_id,
+            agent_ids=new_ids,
+            dept_id=affected_id,
+            i18n=affected.i18n or None,
+        )
+
+    return await gtDeptManager.save_dept(
+        team_id=team_id,
+        name=name,
+        responsibility=responsibility,
+        parent_id=parent_id,
+        manager_id=manager_id,
+        agent_ids=agent_ids,
+        dept_id=dept_id,
+        i18n=i18n,
+    )
+
+
 async def get_dept_tree(team_id: int) -> GtDept | None:
     """从 DB 重建树形结构，返回根节点；无部门时返回 None。"""
     all_depts = await gtDeptManager.get_all_depts(team_id)
