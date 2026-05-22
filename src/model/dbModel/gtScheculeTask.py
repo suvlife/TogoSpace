@@ -16,7 +16,7 @@ class GtScheculeTask(DbModelBase):
     error_message: str | None = peewee.TextField(null=True)
 
     class Meta:
-        table_name = "agent_tasks"
+        table_name = "schecule_tasks"
         indexes = (
             (("agent_id", "status"), False),
         )

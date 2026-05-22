@@ -9,7 +9,7 @@ from . import gtRoleTemplateManager
 from . import gtRoomManager
 from . import gtRoomMessageManager
 from . import gtSystemConfigManager
-from . import gtTaskManager
+from . import gtAgentTaskManager
 from . import gtTeamManager
 
 __all__ = [
@@ -22,6 +22,6 @@ __all__ = [
     "gtRoomManager",
     "gtRoomMessageManager",
     "gtSystemConfigManager",
-    "gtTaskManager",
+    "gtAgentTaskManager",
     "gtTeamManager",
 ]

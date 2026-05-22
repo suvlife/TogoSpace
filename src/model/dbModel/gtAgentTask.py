@@ -7,7 +7,7 @@ from constants import TaskPriority, TaskStatus
 from .base import DbModelBase, EnumField, JsonField
 
 
-class GtTask(DbModelBase):
+class GtAgentTask(DbModelBase):
     """协作任务记录（Agent 间结构化任务管理）。"""
 
     team_id:      int            = peewee.IntegerField()
@@ -25,7 +25,7 @@ class GtTask(DbModelBase):
     block_reason: str            = peewee.TextField(default='')
 
     class Meta:
-        table_name = "tasks"
+        table_name = "agent_tasks"
         indexes = (
             (("team_id", "status"), False),
             (("team_id", "assignee_id"), False),

@@ -166,7 +166,7 @@ V22 为 Agent 提供 4 个新工具：
 
 ### V22 包含
 
-- `tasks` 数据表（含状态机、依赖关系、验收字段）
+- `agent_tasks` 数据表（含状态机、依赖关系、验收字段）
 - 4 个 Agent 工具：`create_task`、`update_task`、`get_task`、`list_tasks`
 - 任务状态流转的权限约束（assignee/manager/creator 各自的操作范围）
 - 依赖任务的自动状态管理（PENDING 自动进入，依赖满足后解锁）

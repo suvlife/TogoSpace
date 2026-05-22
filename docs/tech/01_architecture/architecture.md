@@ -282,7 +282,8 @@ AppConfig
 | `GtRoleTemplate` | gt_role_template | 角色模板 |
 | `GtRoomMessage` | gt_room_message | 聊天消息记录 |
 | `GtAgentHistory` | gt_agent_history | Agent 对话历史（LLM 上下文） |
-| `GtScheculeTask` | gt_agent_task | Agent 任务队列 |
+| `GtScheculeTask` | schecule_tasks | 调度任务队列 |
+| `GtAgentTask` | agent_tasks | 协作任务队列 |
 | `GtAgentActivity` | gt_agent_activity | Agent 活动记录（推理/工具调用） |
 | `GtSystemConfig` | gt_system_config | 系统配置 KV 存储 |
 | `HistoryUsage` | history_usage | Token 用量记录 |

@@ -114,7 +114,7 @@ pending → accepted → in_progress → completed
 ### 平台侧改造点
 
 #### 数据库层
-新增 `GtScheculeTask`（已存在，确认是否可复用或扩展）表，补充以下字段（如不足）：
+新增 `GtAgentTask`（协作任务表）或在现有实现上扩展，补充以下字段（如不足）：
 - `delegator_id`：委派方 Agent ID
 - `assignee_id`：被委派方 Agent ID
 - `title`：任务标题

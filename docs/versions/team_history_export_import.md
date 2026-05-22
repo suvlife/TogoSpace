@@ -10,7 +10,7 @@
 | `room_states` | `GtRoom.agent_read_index` + `turn_pos` | 房间运行时状态（已读游标 + 轮次位置） |
 | `agent_histories` | `GtAgentHistory` | Agent LLM 对话历史（保证 Agent 可继续运行） |
 | `agent_activities` | `GtAgentActivity` | Agent 活动记录 |
-| `agent_tasks` | `GtScheculeTask` | Agent 任务队列（保证 Agent 可从断点恢复） |
+| `schecule_tasks` | `GtScheculeTask` | Agent 调度任务队列（保证 Agent 可从断点恢复） |
 
 **不包含**：`agent_histories` 中的 COMPACT_SUMMARY 以外的大体积内容不做特殊裁剪，全量导出。
 
@@ -78,7 +78,7 @@
     }
   ],
 
-  "agent_tasks": [
+  "schecule_tasks": [
     {
       "agent_name": "小马哥",
       "task_type": "ROOM_MESSAGE",
@@ -99,8 +99,8 @@
 | `room_states` 的 value（位置序号） | 原样保留，**不转换** | 原样写入 |
 | `agent_history.agent_id` | → agent name | 反查 name → id |
 | `agent_activity.agent_id` | → agent name | 反查 name → id |
-| `agent_task.agent_id` | → agent name | 反查 name → id |
-| `agent_task.task_data.room_id` | → room name | 反查 name → id |
+| `schecule_task.agent_id` | → agent name | 反查 name → id |
+| `schecule_task.task_data.room_id` | → room name | 反查 name → id |
 
 > `agent_read_index` 的 value 已是消息列表的位置序号（`len(messages)` 写入），不是数据库消息 ID，因此跨实例导入无需转换。
 
@@ -141,7 +141,7 @@ POST /teams/{team_id}/import/history.json
 1. 校验 team 存在
 2. 停止 team 运行时（stop_team_runtime）
 3. 清空数据（按依赖顺序）：
-   agent_tasks → agent_histories → room_messages → agent_activities
+   schecule_tasks → agent_histories → room_messages → agent_activities
    重置 agent_read_index（reset_room_read_index）
 4. 构建映射表：
    room_name → room_id
@@ -152,7 +152,7 @@ POST /teams/{team_id}/import/history.json
    写入 turn_pos
 7. 插入 agent_histories（保留原 seq，跳过找不到 agent 的条目）
 8. 插入 agent_activities（跳过找不到 agent 的条目）
-9. 插入 agent_tasks（task_data.room_name → room_id，跳过找不到的条目）
+9. 插入 schecule_tasks（task_data.room_name → room_id，跳过找不到的条目）
 10. hot_reload_team 恢复运行时
 11. 返回 summary
 ```
@@ -233,7 +233,7 @@ class TeamHistoryExport(BaseModel):
     room_states: dict[str, RoomStateRecord]   # key: room_name
     agent_histories: list[AgentHistoryRecord]
     agent_activities: list[AgentActivityRecord]
-    agent_tasks: list[AgentTaskRecord]
+    schecule_tasks: list[AgentTaskRecord]
 ```
 
 ### 6.2 DAL 新增函数

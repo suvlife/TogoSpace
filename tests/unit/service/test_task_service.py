@@ -7,14 +7,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from constants import TaskPriority, TaskStatus
-from model.dbModel.gtTask import GtTask
+from model.dbModel.gtAgentTask import GtAgentTask
 from service import taskService
 
 
 @pytest.fixture
 def task_manager_mock():
     """统一 mock 任务 DAL，避免访问真实数据库。"""
-    with patch("service.taskService.gtTaskManager") as mock_manager:
+    with patch("service.taskService.gtAgentTaskManager") as mock_manager:
         yield mock_manager
 
 
@@ -46,14 +46,14 @@ def mock_model_to_dict():
 
 @pytest.fixture
 def saved_task():
-    task = MagicMock(spec=GtTask)
+    task = MagicMock(spec=GtAgentTask)
     task.id = 42
     return task
 
 
 def _build_task(**overrides):
     """构造任务 mock，减少重复样板代码。"""
-    task = MagicMock(spec=GtTask)
+    task = MagicMock(spec=GtAgentTask)
     task.id = overrides.get("id", 1)
     task.team_id = overrides.get("team_id", 1)
     task.title = overrides.get("title", "test task")
@@ -85,7 +85,7 @@ async def test_create_task_success_self_assign(task_manager_mock, saved_task):
     assert result == {"success": True, "task_id": 42, "message": "任务已创建，task_id=42，状态=TODO"}
     task_manager_mock.create_task.assert_awaited_once()
     created_task = task_manager_mock.create_task.await_args.args[0]
-    assert isinstance(created_task, GtTask)
+    assert isinstance(created_task, GtAgentTask)
     assert created_task.team_id == 1
     assert created_task.creator_id == 11
     assert created_task.assignee_id == 11

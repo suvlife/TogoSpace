@@ -28,7 +28,7 @@ schedulerService          AgentTaskConsumer          gtScheculeTaskManager      
 
 ### 2.1 任务状态（AgentTaskStatus）
 
-持久化在 `agent_tasks` 表中，驱动消费循环的判断逻辑。
+持久化在 `schecule_tasks` 表中，驱动消费循环的判断逻辑。
 
 | 状态 | 含义 | 数据库值 |
 |------|------|----------|

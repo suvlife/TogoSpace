@@ -2,24 +2,24 @@
 
 ## 1. 目标
 
-为 Agent 协作引入结构化任务管理能力：新增 `tasks` 数据表、`GtTask` 数据模型、DAL 层 CRUD、以及 4 个注册到 funcToolService 的 Agent 工具（`create_task` / `update_task` / `get_task` / `list_tasks`）。
+为 Agent 协作引入结构化任务管理能力：新增 `agent_tasks` 数据表、`GtAgentTask` 数据模型、DAL 层 CRUD、以及 4 个注册到 funcToolService 的 Agent 工具（`create_task` / `update_task` / `get_task` / `list_tasks`）。
 
 ---
 
 ## 2. 命名说明
 
-项目中已存在 `GtScheculeTask`（表 `agent_tasks`），用于调度系统的内部任务队列，与本 feature 无关。本版本新增的协作任务模型命名为 **`GtTask`**（表 `tasks`），两者职责不同，名称区分。
+项目中已存在 `GtScheculeTask`（表 `schecule_tasks`），用于调度系统的内部任务队列，与本 feature 无关。本版本新增的协作任务模型命名为 **`GtAgentTask`**（表 `agent_tasks`），两者职责不同，名称区分。
 
 ---
 
 ## 3. 数据模型
 
-### 3.1 GtTask（新增）
+### 3.1 GtAgentTask（新增）
 
-文件：`src/model/dbModel/gtTask.py`
+文件：`src/model/dbModel/gtAgentTask.py`
 
 ```python
-class GtTask(DbModelBase):
+class GtAgentTask(DbModelBase):
     team_id:      int             = peewee.IntegerField()
     title:        str             = peewee.TextField()
     description:  str             = peewee.TextField(default='')
@@ -35,7 +35,7 @@ class GtTask(DbModelBase):
     block_reason: str             = peewee.TextField(default='')
 
     class Meta:
-        table_name = "tasks"
+        table_name = "agent_tasks"
         indexes = (
             (("team_id", "status"), False),
             (("team_id", "assignee_id"), False),
@@ -100,20 +100,20 @@ ON_HOLD       → IN_PROGRESS / CANCELLED
 
 ## 5. DAL 层
 
-文件：`src/dal/db/gtTaskManager.py`
+文件：`src/dal/db/gtAgentTaskManager.py`
 
 ```python
-async def create_task(task: GtTask) -> GtTask
-async def get_task(task_id: int) -> GtTask | None
+async def create_task(task: GtAgentTask) -> GtAgentTask
+async def get_task(task_id: int) -> GtAgentTask | None
 async def list_tasks(
     team_id: int,
     assignee_id: int | None = None,
     manager_id:  int | None = None,
     status:      TaskStatus | None = None,
     limit: int = 20,
-) -> list[GtTask]
-async def update_task(task: GtTask, fields: list) -> GtTask
-async def get_tasks_by_ids(task_ids: list[int]) -> list[GtTask]
+) -> list[GtAgentTask]
+async def update_task(task: GtAgentTask, fields: list) -> GtAgentTask
+async def get_tasks_by_ids(task_ids: list[int]) -> list[GtAgentTask]
 ```
 
 `update_task` 使用 `task.aio_save(only=fields)` 精确更新指定字段，同时确保 `updated_at` 被刷新。
@@ -163,7 +163,7 @@ async def update_task(
 ) -> dict
 ```
 
-返回：`{ success, task, message }`（`task` 为 GtTask 序列化结果）
+返回：`{ success, task, message }`（`task` 为 GtAgentTask 序列化结果）
 
 逻辑：
 1. 加载任务，验证 `team_id` 匹配
@@ -214,9 +214,9 @@ async def list_tasks(
 
 ## 7. DB Migration
 
-新增 `tasks` 表的迁移脚本，与项目现有迁移机制保持一致。
+新增 `agent_tasks` 表的迁移脚本，与项目现有迁移机制保持一致。
 
-`GtTask` 需在数据库初始化时注册到 `model_list`（与 `GtScheculeTask` 并列，不冲突）。
+`GtAgentTask` 需在数据库初始化时注册到 `model_list`（与 `GtScheculeTask` 并列，不冲突）。
 
 ---
 
@@ -225,14 +225,14 @@ async def list_tasks(
 | 文件 | 变更 |
 |------|------|
 | `src/constants.py` | 新增 `TaskStatus`、`TaskPriority` 枚举 |
-| `src/model/dbModel/gtTask.py`（新文件） | `GtTask` 数据模型 |
-| `src/model/dbModel/__init__.py` | 导出 `GtTask` |
-| `src/dal/db/gtTaskManager.py`（新文件） | CRUD 方法 |
-| `src/dal/db/__init__.py` | 导出 `gtTaskManager` |
+| `src/model/dbModel/gtAgentTask.py`（新文件） | `GtAgentTask` 数据模型 |
+| `src/model/dbModel/__init__.py` | 导出 `GtAgentTask` |
+| `src/dal/db/gtAgentTaskManager.py`（新文件） | CRUD 方法 |
+| `src/dal/db/__init__.py` | 导出 `gtAgentTaskManager` |
 | `src/service/funcToolService/tools.py`（或新 taskTools.py） | 4 个工具函数 |
 | `src/service/funcToolService/core.py` | 注册 4 个工具 |
 | `src/service/funcToolService/__init__.py`（如需） | 导出新工具 |
-| DB migration 脚本 | 建 `tasks` 表 |
+| DB migration 脚本 | 建 `agent_tasks` 表 |
 
 ---
 

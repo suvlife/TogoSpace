@@ -9,8 +9,8 @@ import logging
 from typing import Optional
 
 from constants import TaskPriority, TaskStatus
-from dal.db import gtTaskManager
-from model.dbModel.gtTask import GtTask
+from dal.db import gtAgentTaskManager
+from model.dbModel.gtAgentTask import GtAgentTask
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +70,7 @@ async def create_task(
     dep_ids: list[int] = list(depends_on or [])
     initial_status = TaskStatus.TODO
     if dep_ids:
-        dep_tasks = await gtTaskManager.get_tasks_by_ids(dep_ids)
+        dep_tasks = await gtAgentTaskManager.get_tasks_by_ids(dep_ids)
         found_ids = {t.id for t in dep_tasks}
         missing = [d for d in dep_ids if d not in found_ids]
         if missing:
@@ -81,7 +81,7 @@ async def create_task(
         if any(t.status != TaskStatus.DONE for t in dep_tasks):
             initial_status = TaskStatus.PENDING
 
-    task = GtTask(
+    task = GtAgentTask(
         team_id=team_id,
         title=title,
         description=description,
@@ -96,7 +96,7 @@ async def create_task(
         result='',
         block_reason='',
     )
-    saved = await gtTaskManager.create_task(task)
+    saved = await gtAgentTaskManager.create_task(task)
     logger.info(f"任务创建：task_id={saved.id}, title={title!r}, assignee={assignee_id}, status={initial_status.value}")
     return {"success": True, "task_id": saved.id, "message": f"任务已创建，task_id={saved.id}，状态={initial_status.value}"}
 
@@ -118,7 +118,7 @@ async def update_task(
     if new_status is None:
         return {"success": False, "message": f"无效的状态：{status}"}
 
-    task = await gtTaskManager.get_task(task_id)
+    task = await gtAgentTaskManager.get_task(task_id)
     if task is None:
         return {"success": False, "message": f"任务不存在：task_id={task_id}"}
     if task.team_id != team_id:
@@ -157,7 +157,7 @@ async def update_task(
     # 依赖检查
     if old_status == TaskStatus.PENDING and new_status == TaskStatus.IN_PROGRESS:
         if task.depends_on:
-            dep_tasks = await gtTaskManager.get_tasks_by_ids(task.depends_on)
+            dep_tasks = await gtAgentTaskManager.get_tasks_by_ids(task.depends_on)
             unfinished = [t.id for t in dep_tasks if t.status != TaskStatus.DONE]
             if unfinished:
                 return {
@@ -175,16 +175,16 @@ async def update_task(
         }
 
     # 执行更新
-    fields = [GtTask.status]
+    fields = [GtAgentTask.status]
     task.status = new_status
     if result:
         task.result = result
-        fields.append(GtTask.result)
+        fields.append(GtAgentTask.result)
     if block_reason:
         task.block_reason = block_reason
-        fields.append(GtTask.block_reason)
+        fields.append(GtAgentTask.block_reason)
 
-    updated = await gtTaskManager.update_task(task, fields)
+    updated = await gtAgentTaskManager.update_task(task, fields)
     logger.info(f"任务状态变更：task_id={task_id}, {old_status.value} → {new_status.value}, caller={caller_id}")
 
     from playhouse.shortcuts import model_to_dict
@@ -195,7 +195,7 @@ async def get_task(team_id: int, task_id: int) -> dict:
     """查询单个任务详情，含依赖任务状态摘要。"""
     from playhouse.shortcuts import model_to_dict
 
-    task = await gtTaskManager.get_task(task_id)
+    task = await gtAgentTaskManager.get_task(task_id)
     if task is None:
         return {"success": False, "message": f"任务不存在：task_id={task_id}"}
     if task.team_id != team_id:
@@ -205,7 +205,7 @@ async def get_task(team_id: int, task_id: int) -> dict:
 
     depends_on_details: list[dict] = []
     if task.depends_on:
-        dep_tasks = await gtTaskManager.get_tasks_by_ids(task.depends_on)
+        dep_tasks = await gtAgentTaskManager.get_tasks_by_ids(task.depends_on)
         dep_map = {t.id: t for t in dep_tasks}
         for dep_id in task.depends_on:
             dep = dep_map.get(dep_id)
@@ -234,7 +234,7 @@ async def list_tasks(
         if status_enum is None:
             return {"success": False, "message": f"无效的状态：{status}"}
 
-    tasks = await gtTaskManager.list_tasks(
+    tasks = await gtAgentTaskManager.list_tasks(
         team_id=team_id,
         assignee_id=assignee_id,
         manager_id=manager_id,

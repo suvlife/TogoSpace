@@ -27,7 +27,7 @@ Team 这一层是总控编排，不直接使用 `restore_team_runtime_state` 这
 | 对象 | 状态内容 | 存储位置 |
 | --- | --- | --- |
 | `Agent` | LLM 对话历史 | `agent_histories` |
-| `Agent` | 遗留任务状态 | `agent_tasks` |
+| `Agent` | 遗留任务状态 | `schecule_tasks` |
 | `ChatRoom` | 房间消息 | `room_messages` |
 | `ChatRoom` | `agent_read_index` | `rooms.agent_read_index` |
 | `ChatRoom` | `turn_pos` | `rooms.turn_pos` |
