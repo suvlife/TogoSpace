@@ -378,5 +378,24 @@ async def test_list_tasks_basic_call_returns_tasks(task_manager_mock):
         assignee_id=None,
         manager_id=None,
         status=None,
+        exclude_statuses=None,
         limit=20,
+    )
+
+
+@pytest.mark.asyncio
+async def test_list_tasks_open_only_excludes_done_and_cancelled(task_manager_mock):
+    task_manager_mock.list_tasks = AsyncMock(return_value=[_build_task(id=3, status=TaskStatus.IN_PROGRESS)])
+
+    result = await taskService.list_tasks(team_id=1, assignee_id=11, open_only=True, limit=10)
+
+    assert result["success"] is True
+    assert result["total"] == 1
+    task_manager_mock.list_tasks.assert_awaited_once_with(
+        team_id=1,
+        assignee_id=11,
+        manager_id=None,
+        status=None,
+        exclude_statuses=[TaskStatus.DONE, TaskStatus.CANCELLED],
+        limit=10,
     )

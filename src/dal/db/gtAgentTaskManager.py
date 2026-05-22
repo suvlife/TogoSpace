@@ -22,6 +22,7 @@ async def list_tasks(
     assignee_id: int | None = None,
     manager_id: int | None = None,
     status: TaskStatus | None = None,
+    exclude_statuses: list[TaskStatus] | None = None,
     limit: int = 20,
 ) -> list[GtAgentTask]:
     """按条件查询任务列表，按创建时间降序。"""
@@ -32,6 +33,8 @@ async def list_tasks(
         query = query.where(GtAgentTask.manager_id == manager_id)
     if status is not None:
         query = query.where(GtAgentTask.status == status)
+    if exclude_statuses:
+        query = query.where(GtAgentTask.status.not_in(exclude_statuses))
     query = query.order_by(GtAgentTask.id.desc()).limit(limit)
     return list(await query.aio_execute())
 

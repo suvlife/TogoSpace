@@ -7,7 +7,7 @@ from controller.baseController import BaseHandler
 from dal.db import gtTeamManager, gtAgentManager, gtRoleTemplateManager, gtScheculeTaskManager
 from service.agentService.toolRegistry import validate_tool_allow_specs
 from model.dbModel.gtAgent import GtAgent
-from service import teamService, agentService
+from service import teamService, agentService, taskService
 from util import assertUtil
 
 
@@ -175,6 +175,34 @@ class AgentDetailByIdHandler(BaseHandler):
             error_code="agent_not_found",
         )
         self.return_json(await _build_agent_detail_payload(agent))
+
+
+class AgentTasksHandler(BaseHandler):
+    """GET /agents/<id>/tasks.json - 获取指定 Agent 的协作任务列表"""
+
+    async def get(self, agent_id_str: str) -> None:
+        agent_id = int(agent_id_str)
+        limit_raw = self.get_query_argument("limit", "30")
+        include_closed_raw = self.get_query_argument("include_closed", "false")
+        limit = max(1, min(int(limit_raw), 100))
+        include_closed = include_closed_raw.strip().lower() in {"1", "true", "yes", "on"}
+
+        agents = await gtAgentManager.get_agents_by_ids([agent_id])
+        agent = agents[0] if agents else None
+        assertUtil.assertNotNull(
+            agent,
+            error_message=f"Agent ID '{agent_id}' not found",
+            error_code="agent_not_found",
+        )
+
+        self.return_json(
+            await taskService.list_tasks(
+                team_id=agent.team_id,
+                assignee_id=agent.id,
+                open_only=not include_closed,
+                limit=limit,
+            )
+        )
 
 
 class AgentResumeHandler(BaseHandler):

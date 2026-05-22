@@ -223,22 +223,27 @@ async def list_tasks(
     assignee_id: Optional[int] = None,
     manager_id: Optional[int] = None,
     status: Optional[str] = None,
+    open_only: bool = False,
     limit: int = 20,
 ) -> dict:
     """查询协作任务列表。"""
     from playhouse.shortcuts import model_to_dict
 
     status_enum: Optional[TaskStatus] = None
+    exclude_statuses: list[TaskStatus] | None = None
     if status is not None:
         status_enum = TaskStatus.value_of(status.upper())
         if status_enum is None:
             return {"success": False, "message": f"无效的状态：{status}"}
+    elif open_only:
+        exclude_statuses = [TaskStatus.DONE, TaskStatus.CANCELLED]
 
     tasks = await gtAgentTaskManager.list_tasks(
         team_id=team_id,
         assignee_id=assignee_id,
         manager_id=manager_id,
         status=status_enum,
+        exclude_statuses=exclude_statuses,
         limit=limit,
     )
     return {"success": True, "tasks": [model_to_dict(t, recurse=False) for t in tasks], "total": len(tasks)}
