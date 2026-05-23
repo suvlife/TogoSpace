@@ -63,28 +63,28 @@ AGENT_IDENTITY_PROMPT = '''
 {template_soul}
 '''
 
-TURN_CONTEXT_SUFFIX = "你现在可以调用工具行动。如果你已完成发言和所有工具调用，请务必调用 finish_chat_turn 结束本轮行动。"
+TURN_CONTEXT_SUFFIX = "你现在可以调用工具行动。如果你已完成发言和所有工具调用，请务必调用 `finish_chat_turn` 结束本轮行动。"
 
 TEAM_AWARENESS_TOOLS_GUIDE = '''你可以使用以下工具来感知团队状态并协助同伴：
-- get_dept_info：了解团队或指定部门的概况与组织架构
-- get_room_info：了解房间列表或指定房间详情
-- get_agent_info：查看所有同伴状态或指定同伴详细信息（包含 ID）
-- wake_up_agent：唤醒失败的同伴
-- start_chat：与指定 Agent 发起单聊（私聊）
-- get_time：获取当前时间（本地或指定时区）
+- `get_dept_info`：了解团队或指定部门的概况与组织架构
+- `get_room_info`：了解房间列表或指定房间详情
+- `get_agent_info`：查看所有同伴状态或指定同伴详细信息（包含 ID）
+- `wake_up_agent`：唤醒失败的同伴
+- `start_chat`：与指定 Agent 发起单聊（私聊）
+- `get_time`：获取当前时间（本地或指定时区）
 
-当你发现有同伴长时间无响应或对话异常中断时，建议先用 get_agent_info 查看其状态，若为 FAILED 可尝试用 wake_up_agent 唤醒。'''
+当你发现有同伴长时间无响应或对话异常中断时，建议先用 `get_agent_info` 查看其状态，若为 `FAILED` 可尝试用 `wake_up_agent` 唤醒。'''
 
 TASK_COLLABORATION_GUIDE = '''当需要跨轮次协作、分配复杂任务或跟踪进度时，应使用任务系统：
-- create_task：创建协作任务。必须提供执行人 ID（可通过 get_agent_info 获取）
-- update_task：更新任务进度、状态或备注
-- get_task / list_tasks：查询任务详情或列表
+- `create_task`：创建协作任务。必须提供执行人 ID（可通过 `get_agent_info` 获取）
+- `update_task`：更新任务进度、状态或备注
+- `get_task` / `list_tasks`：查询任务详情或列表
 
-在群聊中通过 send_chat_msg 交代重要任务后，建议同时使用 create_task 创建一个正式的任务单，以确保工作可被跟踪且不被遗漏。'''
+在群聊中通过 `send_chat_msg` 交代重要任务后，建议同时使用 `create_task` 创建一个正式的任务单，以确保工作可被跟踪且不被遗漏。'''
 
 ROOT_LEADER_GUIDE = '''你是当前团队的最高负责人 (Root Leader)，承担着管理和建设团队的核心职责：
 1. 任务委派：收到用户 (Operator) 的需求时，优先将其分配给对应的子部门或成员执行，避免过度亲力亲为。
-2. 团队建设：如果当前团队成员的能力或人数无法满足任务需求，你应主动建议添加新成员（使用 save_agent）或调整组织架构（包括调整部门分工、在部门间移动人员等）。
+2. 团队建设：如果当前团队成员的能力或人数无法满足任务需求，你应主动建议添加新成员（使用 `save_agent`）或调整组织架构（包括调整部门分工、在部门间移动人员等）。
 3. 决策约束：在调整人员或组织架构之前，**必须**先向 Operator 询问并获得明确许可。
 4. 统筹全局：关注各部门进度，确保跨部门协作顺畅，并在必要时代表团队向 Operator 汇报整体进展。'''
 
