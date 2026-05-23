@@ -172,6 +172,7 @@ async def get_room_info(room_name: Optional[str] = None, _context: ToolCallConte
                     for agent_id in (room_config.agent_ids or [])
                     if agent_id != int(SpecialAgent.SYSTEM.value)
                 ]),
+                "tags": list(room_config.tags or []),
             })
         return {"success": True, "rooms": rooms}
 
@@ -196,6 +197,7 @@ async def get_room_info(room_name: Optional[str] = None, _context: ToolCallConte
         ]),
         "current_turn": _resolve_agent_name(runtime_room.get_current_turn_agent_id(), id_to_name) if runtime_room is not None and runtime_room.state == RoomState.SCHEDULING else None,
         "total_messages": len(runtime_room.messages) if runtime_room is not None else 0,
+        "tags": list(room_config.tags or []),
     }
     return {"success": True, "room": room_dict}
 
