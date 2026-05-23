@@ -138,6 +138,7 @@ async def _load_team_agents(team_id: int, workspace_root: str | None = None) -> 
             workdir=team_workdir,
             base_prompt_tmpl=BASE_PROMPT.strip(),
             identity_prompt_tmpl=AGENT_IDENTITY_PROMPT.strip(),
+            is_root_leader=is_root_leader,
         )
 
         assert gt_agent.id is not None and gt_agent.id > 0, f"invalid agent id: {gt_agent.id}"

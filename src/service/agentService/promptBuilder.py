@@ -6,6 +6,8 @@ from model.dbModel.gtRoomMessage import GtRoomMessage
 from service.agentService.prompts import (
     TURN_CONTEXT_SUFFIX,
     TEAM_AWARENESS_TOOLS_GUIDE,
+    TASK_COLLABORATION_GUIDE,
+    ROOT_LEADER_GUIDE,
     COMPACT_PROMPT_TEMPLATE,
     COMPACT_RESUME_TEMPLATE,
     WORKDIR_PROMPT,
@@ -153,10 +155,16 @@ async def build_agent_system_prompt(
     workdir: str,
     base_prompt_tmpl: str,
     identity_prompt_tmpl: str,
+    is_root_leader: bool = False,
 ) -> str:
+    dept_context = ""
+    if team_id > 0:
+        dept_context = await _build_dept_context(team_id, agent_name)
+
     identity_prompt = identity_prompt_tmpl.format(
         agent_name=agent_display_name,
         template_name=template_display_name,
+        dept_context=dept_context,
         template_soul=template_soul,
     )
     workdir_prompt = WORKDIR_PROMPT.format(workdir=workdir)
@@ -171,7 +179,8 @@ async def build_agent_system_prompt(
         + workdir_prompt
     )
     if team_id > 0:
-        dept_context = await _build_dept_context(team_id, agent_name)
-        full_prompt += "\n\n" + dept_context
         full_prompt += "\n\n" + TEAM_AWARENESS_TOOLS_GUIDE
+        full_prompt += "\n\n" + TASK_COLLABORATION_GUIDE
+        if is_root_leader:
+            full_prompt += "\n\n" + ROOT_LEADER_GUIDE
     return full_prompt
