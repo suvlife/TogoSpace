@@ -171,6 +171,17 @@ async def upsert_dept(
         if manager_id not in parent_ids:
             depts_to_update[parent_id] = [manager_id] + parent_ids
 
+    # 确保子部门主管在当前部门成员中
+    if dept_id is not None:
+        for dept in all_depts:
+            if dept.parent_id == dept_id and dept.manager_id not in agent_ids:
+                mgr_name = agent_map.get(dept.manager_id)
+                mgr_name = mgr_name.name if mgr_name else str(dept.manager_id)
+                raise TogoException(
+                    f"子部门 '{dept.name}' 的负责人 '{mgr_name}' 不在当前部门成员列表中，请将负责人加入成员列表后再更新",
+                    error_code="DEPT_MISSING_CHILD_MANAGER",
+                )
+
     # 批量保存受影响的其他部门
     for affected_id, new_ids in depts_to_update.items():
         affected = dept_map[affected_id]

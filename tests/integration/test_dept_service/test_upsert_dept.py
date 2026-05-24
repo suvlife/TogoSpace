@@ -540,3 +540,74 @@ class TestUpsertDept(ServiceTestCase):
         assert updated.name == "new_parent"
         assert updated.responsibility == "v2"
         assert eng_lead_id in updated.agent_ids
+
+    # ------------------------------------------------------------------
+    # 情况3: DEPT_MISSING_CHILD_MANAGER
+    # 规则：更新父部门时，成员列表必须包含子部门主管，否则报错
+    # ------------------------------------------------------------------
+
+    async def test_upsert_dept_missing_child_manager_raises(self):
+        """更新父部门时，成员列表遗漏子部门主管 → 应抛出 DEPT_MISSING_CHILD_MANAGER。"""
+        await self._reset_tables()
+
+        team = await self._setup_team_with_agents(
+            "t_upsert_missing_child_mgr", ["cto", "eng_lead", "dev_a"]
+        )
+        cto_id = await self._get_agent_id(team.id, "cto")
+        eng_lead_id = await self._get_agent_id(team.id, "eng_lead")
+        dev_a_id = await self._get_agent_id(team.id, "dev_a")
+
+        # 1. 创建父部门，eng_lead 是普通成员
+        parent = await deptService.upsert_dept(
+            team_id=team.id, name="company", responsibility="v1",
+            manager_id=cto_id, agent_ids=[cto_id, eng_lead_id], parent_id=None,
+        )
+
+        # 2. 创建子部门，eng_lead 是其 manager
+        await deptService.upsert_dept(
+            team_id=team.id, name="engineering", responsibility="",
+            manager_id=eng_lead_id, agent_ids=[eng_lead_id, dev_a_id], parent_id=parent.id,
+        )
+
+        # 3. 更新父部门，成员列表遗漏 eng_lead → 应报错
+        with pytest.raises(TogoException) as exc_info:
+            await deptService.upsert_dept(
+                team_id=team.id, name="company", responsibility="v2",
+                manager_id=cto_id, agent_ids=[cto_id],  # 不含 eng_lead
+                parent_id=None, dept_id=parent.id,
+            )
+        assert exc_info.value.error_code == "DEPT_MISSING_CHILD_MANAGER"
+        assert "engineering" in str(exc_info.value)
+
+    async def test_upsert_dept_child_manager_in_members_no_raise(self):
+        """更新父部门时，成员列表包含子部门主管 → 不应报错。"""
+        await self._reset_tables()
+
+        team = await self._setup_team_with_agents(
+            "t_upsert_child_mgr_ok", ["cto", "eng_lead", "dev_a"]
+        )
+        cto_id = await self._get_agent_id(team.id, "cto")
+        eng_lead_id = await self._get_agent_id(team.id, "eng_lead")
+        dev_a_id = await self._get_agent_id(team.id, "dev_a")
+
+        # 1. 创建父部门
+        parent = await deptService.upsert_dept(
+            team_id=team.id, name="company", responsibility="v1",
+            manager_id=cto_id, agent_ids=[cto_id, eng_lead_id], parent_id=None,
+        )
+
+        # 2. 创建子部门
+        await deptService.upsert_dept(
+            team_id=team.id, name="engineering", responsibility="",
+            manager_id=eng_lead_id, agent_ids=[eng_lead_id, dev_a_id], parent_id=parent.id,
+        )
+
+        # 3. 更新父部门，成员列表包含 eng_lead → 应正常通过
+        updated = await deptService.upsert_dept(
+            team_id=team.id, name="company", responsibility="v2",
+            manager_id=cto_id, agent_ids=[cto_id, eng_lead_id],  # 包含 eng_lead
+            parent_id=None, dept_id=parent.id,
+        )
+
+        assert updated.responsibility == "v2"
+        assert eng_lead_id in updated.agent_ids
