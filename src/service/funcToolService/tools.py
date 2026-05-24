@@ -965,6 +965,12 @@ async def finish_chat_turn(_context: ToolCallContext = None, confirm_no_need_tal
         logger.warning("结束行动失败，聊天室上下文未设置")
         return {"success": False, "message": "当前没有激活的房间上下文。"}
 
+    if confirm_no_need_talk and _context.chat_room.current_turn_has_content:
+        return {
+            "success": False,
+            "message": "你本轮已经在房间发言了，不需要设置 confirm_no_need_talk=true。请直接调用 finish_chat_turn（不带参数）结束本轮。",
+        }
+
     if not confirm_no_need_talk and not _context.chat_room.current_turn_has_content:
         room_name = _context.chat_room.name
         return {
