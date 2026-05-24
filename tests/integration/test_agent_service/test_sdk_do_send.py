@@ -379,4 +379,4 @@ class TestClaudeSdkAgentDriver(ServiceTestCase):
         assert "sender: bob" in first_prompt
         assert "content: 房间初始化" in first_prompt
         assert "content: hello alice" in first_prompt
-        assert "你现在可以调用工具行动。" in first_prompt
+        assert "你现在可以开始发言（send_chat_msg）或调用工具。在全部完成后，请务必调用 finish_chat_turn 结束本轮行动。" in first_prompt
