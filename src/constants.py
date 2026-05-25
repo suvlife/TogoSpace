@@ -162,6 +162,7 @@ class AgentActivityType(EnhanceEnum):
     REASONING = auto()      # 思考内容（reasoning_content）
     CHAT_REPLY = auto()     # 直接发言（有 content 但无 tool_calls）
     MESSAGE_RECEIVED = auto()  # 收到房间消息
+    TASK_RECEIVED = auto()     # 收到协作任务提醒
 
 
 class AgentActivityStatus(EnhanceEnum):
