@@ -89,7 +89,7 @@ async def close_team_rooms(team_id: int) -> None:
 
 async def _restore_room_runtime_state(room: ChatRoom) -> None:
     """恢复单个房间的消息、已读指针和轮次进度。"""
-    gt_room_messages = await gtRoomMessageManager.get_room_messages(room.room_id)
+    gt_room_messages, _ = await gtRoomMessageManager.get_room_messages(room.room_id)
     agent_read_index, speaker_index = await gtRoomManager.get_room_state(room.room_id)
     recovered_from_db = bool(gt_room_messages)
     restored_messages: list[GtRoomMessage] | None = None
@@ -145,9 +145,13 @@ def get_room(room_id: int) -> ChatRoom | None:
     return _rooms_by_id.get(room_id)
 
 
-async def get_room_messages_from_db(room_id: int) -> list[GtRoomMessage]:
+async def get_room_messages_from_db(
+    room_id: int,
+    before_id: int | None = None,
+    limit: int | None = None,
+) -> tuple[list[GtRoomMessage], bool]:
     """从数据库加载房间消息，固定走持久层。"""
-    return await gtRoomMessageManager.get_room_messages(room_id)
+    return await gtRoomMessageManager.get_room_messages(room_id, before_id=before_id, limit=limit)
 
 
 def get_all_rooms() -> List[ChatRoom]:
