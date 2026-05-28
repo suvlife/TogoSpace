@@ -17,7 +17,7 @@ from model.dbModel.gtRoom import GtRoom
 from model.dbModel.gtTeam import GtTeam
 from model.dbModel.gtAgent import GtAgent
 from constants import MessageBusTopic, AgentStatus, AgentTaskType, AgentTaskStatus, ScheduleState
-from util.configTypes import TeamConfig
+from util.configTypes import TeamPreset
 from ...base import ServiceTestCase
 
 TEAM = "test_team"
@@ -41,8 +41,8 @@ def _force_schedule_running() -> None:
     scheduler._schedule_state = ScheduleState.RUNNING
 
 
-def _make_team_config() -> TeamConfig:
-    return TeamConfig.model_validate({
+def _make_team_config() -> TeamPreset:
+    return TeamPreset.model_validate({
         "name": TEAM,
         "agents": [{"name": "alice", "role_template": "alice"}],
         "preset_rooms": [{"name": "r1", "agents": ["alice"], "max_rounds": 1}],

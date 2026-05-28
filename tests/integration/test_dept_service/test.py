@@ -14,7 +14,7 @@ from model.dbModel.gtTeam import GtTeam
 from model.dbModel.gtAgent import GtAgent
 from model.dbModel.gtRoleTemplate import GtRoleTemplate
 from service import deptService, ormService, roomService, teamService
-from util.configTypes import DeptNodeConfig, TeamConfig, AgentConfig
+from util.configTypes import DeptNodePreset, TeamPreset, AgentPreset
 from constants import DriverType, EmployStatus
 
 
@@ -41,7 +41,7 @@ class TestDeptService(ServiceTestCase):
         await GtTeam.delete().aio_execute()
         await GtRoleTemplate.delete().aio_execute()
 
-    async def _convert_to_gt_agents(self, team_id: int, configs: list[AgentConfig]) -> list[GtAgent]:
+    async def _convert_to_gt_agents(self, team_id: int, configs: list[AgentPreset]) -> list[GtAgent]:
         agents = []
         for cfg in configs:
             rt_id = await gtRoleTemplateManager.resolve_role_template_id_by_name(cfg.role_template)
@@ -62,7 +62,7 @@ class TestDeptService(ServiceTestCase):
             GtRoleTemplate(name="dummy", model="gpt-4o")
         )
         team = await gtTeamManager.save_team(GtTeam(name=team_name))
-        configs = [AgentConfig(name=n, role_template="dummy") for n in agent_names]
+        configs = [AgentPreset(name=n, role_template="dummy") for n in agent_names]
         agents = await self._convert_to_gt_agents(team.id, configs)
         await gtAgentManager.batch_save_agents(team.id, agents)
         return team
@@ -83,7 +83,7 @@ class TestDeptService(ServiceTestCase):
         assert agent is not None
         return agent.id
 
-    async def _to_dept_tree_node(self, team_id: int, node: DeptNodeConfig) -> GtDept:
+    async def _to_dept_tree_node(self, team_id: int, node: DeptNodePreset) -> GtDept:
         agent_rows = await gtAgentManager.get_team_agents_by_names(
             team_id,
             list(dict.fromkeys([*node.agents, node.manager])),
@@ -187,7 +187,7 @@ class TestDeptService(ServiceTestCase):
         team = await self._setup_team_with_agents("t_import", ["alice", "bob"])
         await self._disable_team(team.id)
 
-        tree = DeptNodeConfig(dept_name="product",
+        tree = DeptNodePreset(dept_name="product",
             responsibility="owns the roadmap",
             manager="alice",
             agents=["alice", "bob"],
@@ -211,12 +211,12 @@ class TestDeptService(ServiceTestCase):
         )
         await self._disable_team(team.id)
 
-        tree = DeptNodeConfig(dept_name="company",
+        tree = DeptNodePreset(dept_name="company",
             responsibility="top level",
             manager="cto",
             agents=["cto", "eng_lead"],
             children=[
-                DeptNodeConfig(dept_name="engineering",
+                DeptNodePreset(dept_name="engineering",
                     responsibility="builds product",
                     manager="eng_lead",
                     agents=["eng_lead", "dev_a", "dev_b"],
@@ -239,7 +239,7 @@ class TestDeptService(ServiceTestCase):
         team = await self._setup_team_with_agents("t_overwrite", ["alice", "bob", "charlie"])
         await self._disable_team(team.id)
 
-        original = DeptNodeConfig(dept_name="dept_x",
+        original = DeptNodePreset(dept_name="dept_x",
             responsibility="original",
             manager="alice",
             agents=["alice", "bob"],
@@ -247,7 +247,7 @@ class TestDeptService(ServiceTestCase):
         await deptService.overwrite_dept_tree(team.id, await self._to_dept_tree_node(team.id, original))
 
         # 第二次调用应更新已存在的部门
-        modified = DeptNodeConfig(dept_name="dept_x",
+        modified = DeptNodePreset(dept_name="dept_x",
             responsibility="updated",
             manager="alice",
             agents=["alice", "bob", "charlie"],
@@ -271,7 +271,7 @@ class TestDeptService(ServiceTestCase):
         team = await self._setup_team_with_agents("t_err", ["alice", "bob"])
         await self._disable_team(team.id)
 
-        bad_tree = DeptNodeConfig(dept_name="broken",
+        bad_tree = DeptNodePreset(dept_name="broken",
             responsibility="",
             manager="charlie",  # charlie 不在 agents 中
             agents=["alice", "bob"],
@@ -286,7 +286,7 @@ class TestDeptService(ServiceTestCase):
         team = await self._setup_team_with_agents("t_unknown", ["alice"])
         await self._disable_team(team.id)
 
-        bad_tree = DeptNodeConfig(dept_name="dept_y",
+        bad_tree = DeptNodePreset(dept_name="dept_y",
             responsibility="",
             manager="alice",
             agents=["alice", "ghost"],  # ghost 不在 team_agents 中
@@ -306,12 +306,12 @@ class TestDeptService(ServiceTestCase):
             "t_round", ["cto", "dev_a", "dev_b"]
         )
         await self._disable_team(team.id)
-        original = DeptNodeConfig(dept_name="root",
+        original = DeptNodePreset(dept_name="root",
             responsibility="root dept",
             manager="cto",
             agents=["cto", "dev_a"],
             children=[
-                DeptNodeConfig(dept_name="dev",
+                DeptNodePreset(dept_name="dev",
                     responsibility="development",
                     manager="dev_a",
                     agents=["dev_a", "dev_b"],
@@ -355,7 +355,7 @@ class TestDeptService(ServiceTestCase):
 
         team = await self._setup_team_with_agents("t_setmgr", ["alice", "bob"])
         await self._disable_team(team.id)
-        tree = DeptNodeConfig(dept_name="the_dept",
+        tree = DeptNodePreset(dept_name="the_dept",
             responsibility="",
             manager="alice",
             agents=["alice", "bob"],
@@ -375,7 +375,7 @@ class TestDeptService(ServiceTestCase):
 
         team = await self._setup_team_with_agents("t_setmgr_err", ["alice", "bob", "charlie"])
         await self._disable_team(team.id)
-        tree = DeptNodeConfig(dept_name="small_dept",
+        tree = DeptNodePreset(dept_name="small_dept",
             responsibility="",
             manager="alice",
             agents=["alice", "bob"],
@@ -407,7 +407,7 @@ class TestDeptService(ServiceTestCase):
 
         team = await self._setup_team_with_agents("t_offboard", ["alice", "bob", "charlie"])
         await self._disable_team(team.id)
-        tree = DeptNodeConfig(dept_name="base",
+        tree = DeptNodePreset(dept_name="base",
             responsibility="",
             manager="alice",
             agents=["alice", "bob", "charlie"],
@@ -460,7 +460,7 @@ class TestDeptService(ServiceTestCase):
         assert row[0] == "OFF_BOARD"
 
     # ------------------------------------------------------------------
-    # AgentConfig model/driver 字段持久化
+    # AgentPreset model/driver 字段持久化
     # ------------------------------------------------------------------
 
     async def test_team_agent_model_driver_persist_and_reload(self):
@@ -476,8 +476,8 @@ class TestDeptService(ServiceTestCase):
 
         team = await gtTeamManager.save_team(GtTeam(name="t_model_driver"))
         configs = [
-            AgentConfig(name="alice", role_template="gpt_agent", model="gpt-4o", driver=DriverType.NATIVE),
-            AgentConfig(name="bob", role_template="glm_agent", model="", driver=DriverType.CLAUDE_SDK),
+            AgentPreset(name="alice", role_template="gpt_agent", model="gpt-4o", driver=DriverType.NATIVE),
+            AgentPreset(name="bob", role_template="glm_agent", model="", driver=DriverType.CLAUDE_SDK),
         ]
         agents = await self._convert_to_gt_agents(team.id, configs)
         await gtAgentManager.batch_save_agents(team.id, agents)
@@ -499,7 +499,7 @@ class TestDeptService(ServiceTestCase):
 
         team = await self._setup_team_with_agents("t_get_dept", ["alice", "bob", "charlie"])
         await self._disable_team(team.id)
-        tree = DeptNodeConfig(
+        tree = DeptNodePreset(
             dept_name="found_dept",
             responsibility="",
             manager="alice",
@@ -763,7 +763,7 @@ class TestDeptService(ServiceTestCase):
         await self._disable_team(team.id)
 
         # 只把 alice 和 bob 放入部门树，charlie 不在树中
-        tree = DeptNodeConfig(dept_name="eng",
+        tree = DeptNodePreset(dept_name="eng",
             responsibility="",
             manager="alice",
             agents=["alice", "bob"],

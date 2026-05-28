@@ -24,7 +24,7 @@ import service.llmService as llmService
 from dal.db import gtAgentManager, gtTeamManager, gtRoomManager, gtRoleTemplateManager
 from model.dbModel.gtAgent import GtAgent
 from model.dbModel.gtRoom import GtRoom
-from util.configTypes import AgentConfig
+from util.configTypes import AgentPreset
 from util import configUtil
 from util.llmApiUtil import OpenAIMessage, OpenAIToolCall
 from mock_llm_server import (
@@ -632,8 +632,8 @@ class ServiceTestCase:
         await roomService.load_all_rooms()
 
     @staticmethod
-    async def convert_to_gt_agents(team_id: int, configs: list[AgentConfig]) -> list[GtAgent]:
-        """测试辅助：将 AgentConfig 列表转换为 GtAgent 列表（包含角色模板解析）。"""
+    async def convert_to_gt_agents(team_id: int, configs: list[AgentPreset]) -> list[GtAgent]:
+        """测试辅助：将 AgentPreset 列表转换为 GtAgent 列表（包含角色模板解析）。"""
         agents = []
         for cfg in configs:
             rt_id = await gtRoleTemplateManager.resolve_role_template_id_by_name(cfg.role_template)

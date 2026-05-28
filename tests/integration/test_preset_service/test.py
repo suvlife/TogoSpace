@@ -10,7 +10,7 @@ from model.dbModel.gtAgent import GtAgent
 from model.dbModel.gtRoleTemplate import GtRoleTemplate
 from service import ormService, presetService
 from exception import TogoException
-from util.configTypes import TeamConfig, AgentConfig, DeptNodeConfig
+from util.configTypes import TeamPreset, AgentPreset, DeptNodePreset
 
 
 if os.name == "posix" and sys.platform == "darwin":
@@ -89,11 +89,11 @@ class TestPresetTeamImport(ServiceTestCase):
         await GtTeam.delete().aio_execute()
         await GtRoleTemplate.delete().aio_execute()
 
-    def _make_team_config(self, uuid: str, name: str) -> TeamConfig:
-        return TeamConfig(
+    def _make_team_config(self, uuid: str, name: str) -> TeamPreset:
+        return TeamPreset(
             uuid=uuid,
             name=name,
-            agents=[AgentConfig(name="agent1", role_template="dummy")],
+            agents=[AgentPreset(name="agent1", role_template="dummy")],
             auto_start=True,
         )
 
@@ -141,9 +141,9 @@ class TestPresetTeamImport(ServiceTestCase):
             name="name-match-team",
             deleted=0,
         ))
-        config = TeamConfig(
+        config = TeamPreset(
             name="name-match-team",
-            agents=[AgentConfig(name="agent1", role_template="dummy")],
+            agents=[AgentPreset(name="agent1", role_template="dummy")],
             auto_start=True,
         )
         team = await presetService._import_team_from_config(config)
@@ -189,15 +189,15 @@ class TestDeptTreeValidation(ServiceTestCase):
         self,
         uuid: str,
         name: str,
-        dept_tree: DeptNodeConfig | None,
-    ) -> TeamConfig:
-        return TeamConfig(
+        dept_tree: DeptNodePreset | None,
+    ) -> TeamPreset:
+        return TeamPreset(
             uuid=uuid,
             name=name,
             agents=[
-                AgentConfig(name="manager1", role_template="dummy"),
-                AgentConfig(name="child_manager", role_template="dummy"),
-                AgentConfig(name="agent1", role_template="dummy"),
+                AgentPreset(name="manager1", role_template="dummy"),
+                AgentPreset(name="child_manager", role_template="dummy"),
+                AgentPreset(name="agent1", role_template="dummy"),
             ],
             dept_tree=dept_tree,
             auto_start=True,
@@ -205,12 +205,12 @@ class TestDeptTreeValidation(ServiceTestCase):
 
     async def test_child_manager_not_in_parent_agents_raises(self):
         """子部门 manager 不在父部门 agents 中时抛出异常。"""
-        dept_tree = DeptNodeConfig(
+        dept_tree = DeptNodePreset(
             dept_name="parent_dept",
             manager="manager1",
             agents=["manager1", "agent1"],  # 不包含 child_manager
             children=[
-                DeptNodeConfig(
+                DeptNodePreset(
                     dept_name="child_dept",
                     manager="child_manager",
                     agents=["child_manager"],
@@ -227,12 +227,12 @@ class TestDeptTreeValidation(ServiceTestCase):
 
     async def test_child_manager_in_parent_agents_success(self):
         """子部门 manager 在父部门 agents 中时正常导入。"""
-        dept_tree = DeptNodeConfig(
+        dept_tree = DeptNodePreset(
             dept_name="parent_dept",
             manager="manager1",
             agents=["manager1", "child_manager", "agent1"],  # 包含 child_manager
             children=[
-                DeptNodeConfig(
+                DeptNodePreset(
                     dept_name="child_dept",
                     manager="child_manager",
                     agents=["child_manager", "agent1"],  # 至少 2 人

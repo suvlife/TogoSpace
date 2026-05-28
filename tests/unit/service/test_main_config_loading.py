@@ -132,8 +132,8 @@ def test_load_returns_appconfig_with_typed_fields(tmp_path):
     assert app_config.setting.db_path == "./data/db.sqlite"
     assert llm_cfg.model == "gpt-4"
     assert llm_cfg.api_key == "key-123"
-    assert isinstance(app_config.role_templates, list)
-    assert isinstance(app_config.teams, list)
+    assert isinstance(app_config.role_templates_preset, list)
+    assert isinstance(app_config.teams_preset, list)
     assert app_config.setting.workspace_root
 
 

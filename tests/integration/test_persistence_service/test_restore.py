@@ -49,7 +49,7 @@ class TestPersistenceRestoreIntegration(ServiceTestCase):
 
     async def _bootstrap(self):
         cfg = configUtil.load(_CONFIG_DIR, preset_dir=_CONFIG_DIR, force_reload=True)
-        team_config = cfg.teams[0]
+        team_config = cfg.teams_preset[0]
 
         from src.db import migrate_database
         migrate_database(self._get_test_db_path())

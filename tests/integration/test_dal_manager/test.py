@@ -26,7 +26,7 @@ from model.dbModel.gtRoomMessage import GtRoomMessage
 from model.dbModel.gtTeam import GtTeam
 from model.dbModel.gtAgent import GtAgent
 from util import llmApiUtil
-from util.configTypes import TeamConfig, AgentConfig, TeamRoomConfig
+from util.configTypes import TeamPreset, AgentPreset, TeamRoomPreset
 from tests.base import ServiceTestCase
 
 
@@ -169,13 +169,13 @@ class TestDalManagers(ServiceTestCase):
         ))
         team_b = await gtTeamManager.save_team(GtTeam(name="team_b"))
         configs = [
-            AgentConfig(name="alice_1", role_template="alice"),
-            AgentConfig(name="bob_1", role_template="bob"),
+            AgentPreset(name="alice_1", role_template="alice"),
+            AgentPreset(name="bob_1", role_template="bob"),
         ]
         agents = await ServiceTestCase.convert_to_gt_agents(team_a.id, configs)
         await gtAgentManager.batch_save_agents(team_a.id, agents)
 
-        await roomService.create_team_rooms(team_a.id, await ServiceTestCase.convert_to_gt_rooms(team_a.id, [TeamRoomConfig(
+        await roomService.create_team_rooms(team_a.id, await ServiceTestCase.convert_to_gt_rooms(team_a.id, [TeamRoomPreset(
             name="general",
             initial_topic="hello",
             max_rounds=6,
@@ -209,13 +209,13 @@ class TestDalManagers(ServiceTestCase):
         await self._save_role_template("bob", "gpt-4o")
         await self._save_role_template("charlie", "gpt-4o")
 
-        payload = TeamConfig(
+        payload = TeamPreset(
             name="imported",
             agents=[
-                AgentConfig(name="alice_1", role_template="alice"),
-                AgentConfig(name="bob_1", role_template="bob"),
+                AgentPreset(name="alice_1", role_template="alice"),
+                AgentPreset(name="bob_1", role_template="bob"),
             ],
-            preset_rooms=[TeamRoomConfig(
+            preset_rooms=[TeamRoomPreset(
                 name="r1",
                 initial_topic="topic 1",
                 max_rounds=8,
@@ -232,10 +232,10 @@ class TestDalManagers(ServiceTestCase):
         assert await self._get_room_agent_names(room.id) == ["alice_1", "bob_1"]
 
         # 已存在时应跳过导入，不覆盖已有记录
-        await presetService._import_team_from_config(TeamConfig(
+        await presetService._import_team_from_config(TeamPreset(
             name="imported",
-            agents=[AgentConfig(name="charlie", role_template="charlie")],
-            preset_rooms=[TeamRoomConfig(name="r2", agents=["OPERATOR", "charlie"])],
+            agents=[AgentPreset(name="charlie", role_template="charlie")],
+            preset_rooms=[TeamRoomPreset(name="r2", agents=["OPERATOR", "charlie"])],
         ))
         imported_after = await gtTeamManager.get_team("imported")
         assert imported_after is not None
@@ -263,8 +263,8 @@ class TestDalManagers(ServiceTestCase):
         team = await gtTeamManager.save_team(GtTeam(name="batch_insert_agents_team"))
 
         agents = await ServiceTestCase.convert_to_gt_agents(team.id, [
-            AgentConfig(name="alice", role_template="rt_a"),
-            AgentConfig(name="bob", role_template="rt_b"),
+            AgentPreset(name="alice", role_template="rt_a"),
+            AgentPreset(name="bob", role_template="rt_b"),
         ])
 
         # 防回退：新增成员应走 insert_many，而不是逐条 insert
@@ -306,8 +306,8 @@ class TestDalManagers(ServiceTestCase):
 
         team = await gtTeamManager.save_team(GtTeam(name="room_team"))
         await roomService.create_team_rooms(team.id, await ServiceTestCase.convert_to_gt_rooms(team.id, [
-            TeamRoomConfig(name="z_room", max_rounds=2, agents=["alice", "bob"]),
-            TeamRoomConfig(name="a_room", max_rounds=3, agents=["OPERATOR", "alice"]),
+            TeamRoomPreset(name="z_room", max_rounds=2, agents=["alice", "bob"]),
+            TeamRoomPreset(name="a_room", max_rounds=3, agents=["OPERATOR", "alice"]),
         ]))
 
         rooms = await gtRoomManager.get_rooms_by_team(team.id)
@@ -323,9 +323,9 @@ class TestDalManagers(ServiceTestCase):
 
         team = await gtTeamManager.save_team(GtTeam(name="room_query_team"))
         await roomService.create_team_rooms(team.id, await ServiceTestCase.convert_to_gt_rooms(team.id, [
-            TeamRoomConfig(name="a_room", agents=["alice"]),
-            TeamRoomConfig(name="b_room", agents=["bob"]),
-            TeamRoomConfig(name="c_room", agents=["alice", "bob"]),
+            TeamRoomPreset(name="a_room", agents=["alice"]),
+            TeamRoomPreset(name="b_room", agents=["bob"]),
+            TeamRoomPreset(name="c_room", agents=["alice", "bob"]),
         ]))
 
         rooms = await gtRoomManager.get_rooms_by_team_and_names(
@@ -409,7 +409,7 @@ class TestDalManagers(ServiceTestCase):
 
         team = await gtTeamManager.save_team(GtTeam(name="upsert_team"))
         await roomService.create_team_rooms(team.id, await ServiceTestCase.convert_to_gt_rooms(team.id, [
-            TeamRoomConfig(name="old_room", max_rounds=2, agents=["alice"]),
+            TeamRoomPreset(name="old_room", max_rounds=2, agents=["alice"]),
         ]))
         await roomService.overwrite_team_rooms(team.id, [
             GtRoom(
@@ -444,8 +444,8 @@ class TestDalManagers(ServiceTestCase):
 
         team = await gtTeamManager.save_team(GtTeam(name="delete_team"))
         await roomService.create_team_rooms(team.id, await ServiceTestCase.convert_to_gt_rooms(team.id, [
-            TeamRoomConfig(name="r1", agents=["alice"]),
-            TeamRoomConfig(name="r2", agents=["bob"]),
+            TeamRoomPreset(name="r1", agents=["alice"]),
+            TeamRoomPreset(name="r2", agents=["bob"]),
         ]))
         r1 = next((item for item in await gtRoomManager.get_rooms_by_team(team.id) if item.name == "r1"), None)
         assert r1 is not None
@@ -517,9 +517,9 @@ class TestDalManagers(ServiceTestCase):
 
         team = await gtTeamManager.save_team(GtTeam(name="agent_team"))
         configs = [
-            AgentConfig(name="alice", role_template="alice"),
-            AgentConfig(name="bob", role_template="bob"),
-            AgentConfig(name="charlie", role_template="charlie"),
+            AgentPreset(name="alice", role_template="alice"),
+            AgentPreset(name="bob", role_template="bob"),
+            AgentPreset(name="charlie", role_template="charlie"),
         ]
         agents = await ServiceTestCase.convert_to_gt_agents(team.id, configs)
         await gtAgentManager.batch_save_agents(team.id, agents)
@@ -574,8 +574,8 @@ class TestDalManagers(ServiceTestCase):
         ))
 
         configs = [
-            AgentConfig(name="alice", role_template="alice"),
-            AgentConfig(name="bob", role_template="bob"),
+            AgentPreset(name="alice", role_template="alice"),
+            AgentPreset(name="bob", role_template="bob"),
         ]
         agents = await ServiceTestCase.convert_to_gt_agents(team.id, configs)
         await gtAgentManager.batch_save_agents(team.id, agents)
@@ -612,7 +612,7 @@ class TestDalManagers(ServiceTestCase):
         await self._save_role_template("alice", "gpt-4o")
 
         team = await gtTeamManager.save_team(GtTeam(name="history_team"))
-        configs = [AgentConfig(name="alice", role_template="alice")]
+        configs = [AgentPreset(name="alice", role_template="alice")]
         agents = await ServiceTestCase.convert_to_gt_agents(team.id, configs)
         await gtAgentManager.batch_save_agents(team.id, agents)
         alice = await gtAgentManager.get_agent(team.id, "alice")
@@ -654,8 +654,8 @@ class TestDalManagers(ServiceTestCase):
 
         team = await gtTeamManager.save_team(GtTeam(name="history_team_2"))
         configs = [
-            AgentConfig(name="alice", role_template="alice"),
-            AgentConfig(name="bob", role_template="bob"),
+            AgentPreset(name="alice", role_template="alice"),
+            AgentPreset(name="bob", role_template="bob"),
         ]
         agents = await ServiceTestCase.convert_to_gt_agents(team.id, configs)
         await gtAgentManager.batch_save_agents(team.id, agents)
@@ -710,7 +710,7 @@ class TestDalManagers(ServiceTestCase):
         await self._save_role_template("alice", "gpt-4o")
 
         team = await gtTeamManager.save_team(GtTeam(name="history_team_3"))
-        configs = [AgentConfig(name="alice", role_template="alice")]
+        configs = [AgentPreset(name="alice", role_template="alice")]
         agents = await ServiceTestCase.convert_to_gt_agents(team.id, configs)
         await gtAgentManager.batch_save_agents(team.id, agents)
         alice = await gtAgentManager.get_agent(team.id, "alice")
@@ -754,7 +754,7 @@ class TestDalManagers(ServiceTestCase):
 
         await self._save_role_template("alice", "gpt-4o")
         team = await gtTeamManager.save_team(GtTeam(name="task_team"))
-        configs = [AgentConfig(name="alice", role_template="alice")]
+        configs = [AgentPreset(name="alice", role_template="alice")]
         agents = await ServiceTestCase.convert_to_gt_agents(team.id, configs)
         await gtAgentManager.batch_save_agents(team.id, agents)
         alice = await gtAgentManager.get_agent(team.id, "alice")
@@ -774,7 +774,7 @@ class TestDalManagers(ServiceTestCase):
 
         await self._save_role_template("alice", "gpt-4o")
         team = await gtTeamManager.save_team(GtTeam(name="task_team_2"))
-        configs = [AgentConfig(name="alice", role_template="alice")]
+        configs = [AgentPreset(name="alice", role_template="alice")]
         agents = await ServiceTestCase.convert_to_gt_agents(team.id, configs)
         await gtAgentManager.batch_save_agents(team.id, agents)
         alice = await gtAgentManager.get_agent(team.id, "alice")
@@ -799,7 +799,7 @@ class TestDalManagers(ServiceTestCase):
 
         await self._save_role_template("alice", "gpt-4o")
         team = await gtTeamManager.save_team(GtTeam(name="task_team_running"))
-        configs = [AgentConfig(name="alice", role_template="alice")]
+        configs = [AgentPreset(name="alice", role_template="alice")]
         agents = await ServiceTestCase.convert_to_gt_agents(team.id, configs)
         await gtAgentManager.batch_save_agents(team.id, agents)
         alice = await gtAgentManager.get_agent(team.id, "alice")
@@ -820,7 +820,7 @@ class TestDalManagers(ServiceTestCase):
 
         await self._save_role_template("alice", "gpt-4o")
         team = await gtTeamManager.save_team(GtTeam(name="task_team_3"))
-        configs = [AgentConfig(name="alice", role_template="alice")]
+        configs = [AgentPreset(name="alice", role_template="alice")]
         agents = await ServiceTestCase.convert_to_gt_agents(team.id, configs)
         await gtAgentManager.batch_save_agents(team.id, agents)
         alice = await gtAgentManager.get_agent(team.id, "alice")
@@ -836,7 +836,7 @@ class TestDalManagers(ServiceTestCase):
 
         await self._save_role_template("alice", "gpt-4o")
         team = await gtTeamManager.save_team(GtTeam(name="task_team_4"))
-        configs = [AgentConfig(name="alice", role_template="alice")]
+        configs = [AgentPreset(name="alice", role_template="alice")]
         agents = await ServiceTestCase.convert_to_gt_agents(team.id, configs)
         await gtAgentManager.batch_save_agents(team.id, agents)
         alice = await gtAgentManager.get_agent(team.id, "alice")
@@ -857,7 +857,7 @@ class TestDalManagers(ServiceTestCase):
 
         await self._save_role_template("alice", "gpt-4o")
         team = await gtTeamManager.save_team(GtTeam(name="task_team_5"))
-        configs = [AgentConfig(name="alice", role_template="alice")]
+        configs = [AgentPreset(name="alice", role_template="alice")]
         agents = await ServiceTestCase.convert_to_gt_agents(team.id, configs)
         await gtAgentManager.batch_save_agents(team.id, agents)
         alice = await gtAgentManager.get_agent(team.id, "alice")
@@ -884,8 +884,8 @@ class TestDalManagers(ServiceTestCase):
         team_a = await gtTeamManager.save_team(GtTeam(name="task_team_delete_a"))
         team_b = await gtTeamManager.save_team(GtTeam(name="task_team_delete_b"))
 
-        agents_a = await ServiceTestCase.convert_to_gt_agents(team_a.id, [AgentConfig(name="alice", role_template="alice")])
-        agents_b = await ServiceTestCase.convert_to_gt_agents(team_b.id, [AgentConfig(name="alice", role_template="alice")])
+        agents_a = await ServiceTestCase.convert_to_gt_agents(team_a.id, [AgentPreset(name="alice", role_template="alice")])
+        agents_b = await ServiceTestCase.convert_to_gt_agents(team_b.id, [AgentPreset(name="alice", role_template="alice")])
         await gtAgentManager.batch_save_agents(team_a.id, agents_a)
         await gtAgentManager.batch_save_agents(team_b.id, agents_b)
 

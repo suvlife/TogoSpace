@@ -21,7 +21,7 @@ from service.funcToolService.core import get_tools
 from service.agentService.toolRegistry import CATEGORY_CONFIG
 from constants import DriverType, RoleTemplateType, AgentTaskType, SpecialAgent, ToolCategory
 from util import llmApiUtil, configUtil
-from util.configTypes import TeamConfig, AgentConfig, DeptNodeConfig
+from util.configTypes import TeamPreset, AgentPreset, DeptNodePreset
 from ...base import ServiceTestCase
 
 TEAM = "test_team"
@@ -44,13 +44,13 @@ class TestSdkDoSend(ServiceTestCase):
         await presetService._import_role_templates_from_app_config()
         await agentService.startup()
         
-        cfg = TeamConfig(
+        cfg = TeamPreset(
             name=TEAM,
             agents=[
-                AgentConfig(name="alice", role_template="alice"),
-                AgentConfig(name="bob", role_template="bob"),
+                AgentPreset(name="alice", role_template="alice"),
+                AgentPreset(name="bob", role_template="bob"),
             ],
-            dept_tree=DeptNodeConfig(
+            dept_tree=DeptNodePreset(
                 dept_name="研发部",
                 responsibility="负责协作与开发",
                 manager="alice",
@@ -181,7 +181,7 @@ class TestClaudeSdkAgentDriver(ServiceTestCase):
         await roomService.startup()
         await funcToolService.startup()
         await presetService._import_role_templates_from_app_config()
-        await presetService._import_team_from_config(TeamConfig(name=TEAM))
+        await presetService._import_team_from_config(TeamPreset(name=TEAM))
         await agentService.startup()
 
     @classmethod

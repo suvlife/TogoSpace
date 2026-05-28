@@ -34,7 +34,7 @@ class _agentServiceCase(ServiceTestCase):
         await roomService.startup()
         await presetService._import_role_templates_from_app_config()
         cfg = configUtil.load(_CONFIG_DIR, preset_dir=_CONFIG_DIR, force_reload=True)
-        team_cfg = cfg.teams[0]
+        team_cfg = cfg.teams_preset[0]
         await presetService._import_team_from_config(team_cfg)
         await agentService.startup()
         await agentService.load_all_team_agents()

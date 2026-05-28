@@ -6,10 +6,10 @@ from typing import Any, Callable, List
 
 import appPaths
 from util.configTypes import (
-    RoleTemplateConfig,
+    RoleTemplatePreset,
     AppConfig,
     SettingConfig,
-    TeamConfig,
+    TeamPreset,
 )
 
 _cached_app_config: AppConfig | None = None
@@ -42,22 +42,22 @@ def _load_prompt(file_path: str) -> str:
         return f.read().strip()
 
 
-def _load_role_templates(config_dir: str) -> List[RoleTemplateConfig]:
+def _load_role_templates(config_dir: str) -> List[RoleTemplatePreset]:
     role_templates_dir = os.path.join(config_dir, "role_templates")
     raw_templates = load_json_objects_from_dir(role_templates_dir)
-    templates: list[RoleTemplateConfig] = []
+    templates: list[RoleTemplatePreset] = []
     for raw_template in raw_templates:
-        template = RoleTemplateConfig.model_validate(raw_template)
+        template = RoleTemplatePreset.model_validate(raw_template)
         if not template.soul and template.prompt_file:
             template = template.model_copy(update={"soul": _load_prompt(template.prompt_file)})
         templates.append(template)
     return templates
 
 
-def _load_teams(config_dir: str) -> List[TeamConfig]:
+def _load_teams(config_dir: str) -> List[TeamPreset]:
     teams_dir = os.path.join(config_dir, "teams")
     raw_teams = load_json_objects_from_dir(teams_dir)
-    return [TeamConfig.model_validate(team) for team in raw_teams]
+    return [TeamPreset.model_validate(team) for team in raw_teams]
 
 
 def _copy_template_if_missing(src_name: str, dest_dir: str, dest_name: str | None = None) -> None:
@@ -210,8 +210,8 @@ def load(config_dir: str = None, preset_dir: str = None, force_reload: bool = Fa
     setting = _load_setting(resolved_config_dir)
 
     app_config = AppConfig(
-        role_templates=role_templates,
-        teams=teams,
+        role_templates_preset=role_templates,
+        teams_preset=teams,
         setting=setting,
     )
     _cached_app_config = app_config

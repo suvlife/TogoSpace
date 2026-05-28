@@ -12,7 +12,7 @@ from model.dbModel.gtRoom import GtRoom
 from model.dbModel.gtTeam import GtTeam
 from service import roomService, teamService, agentService
 from util import assertUtil
-from util.configTypes import TeamRoomConfig
+from util.configTypes import TeamRoomPreset
 
 
 def _split_team_config(config: dict | None) -> tuple[str, dict]:
@@ -46,7 +46,7 @@ async def _resolve_room_agent_ids(team_id: int, agent_names: list[str]) -> list[
     return agent_ids
 
 
-async def _to_gt_room(team_id: int, room: TeamRoomConfig) -> GtRoom:
+async def _to_gt_room(team_id: int, room: TeamRoomPreset) -> GtRoom:
     gt_agent_ids = await _resolve_room_agent_ids(team_id, list(room.agents))
     return GtRoom(
         id=room.id,
@@ -102,7 +102,7 @@ class UpdateTeamRequest(BaseModel):
     working_directory: str | None = None
     config: dict | None = None
     agents: list[TeamAgentUpdateItem] | None = None
-    preset_rooms: list[TeamRoomConfig] | None = None
+    preset_rooms: list[TeamRoomPreset] | None = None
 
 
 class SetEnabledRequest(BaseModel):

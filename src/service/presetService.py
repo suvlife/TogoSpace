@@ -12,7 +12,7 @@ from model.dbModel.gtRoleTemplate import GtRoleTemplate
 from model.dbModel.gtTeam import GtTeam
 from service import agentService, deptService, roleTemplateService, roomService
 from util import configUtil, i18nUtil
-from util.configTypes import DeptNodeConfig, TeamConfig, TeamRoomConfig
+from util.configTypes import DeptNodePreset, TeamPreset, TeamRoomPreset
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ async def startup() -> None:
 
 
 async def _import_role_templates_from_app_config() -> None:
-    for template in configUtil.get_app_config().role_templates:
+    for template in configUtil.get_app_config().role_templates_preset:
         await roleTemplateService.save_role_template(GtRoleTemplate(
             name=template.name,
             soul=template.soul,
@@ -34,7 +34,7 @@ async def _import_role_templates_from_app_config() -> None:
     logger.info(f"加载角色模版: {[t.name for t in db_templates]}")
 
 
-def _validate_dept_tree_config(node: DeptNodeConfig) -> None:
+def _validate_dept_tree_config(node: DeptNodePreset) -> None:
     """在进入数据库事务前，对部门树配置进行纯逻辑校验。"""
     for child in node.children:
         if child.manager not in node.agents:
@@ -45,7 +45,7 @@ def _validate_dept_tree_config(node: DeptNodeConfig) -> None:
         _validate_dept_tree_config(child)
 
 
-async def _to_dept_tree_node(team_id: int, node: DeptNodeConfig) -> GtDept:
+async def _to_dept_tree_node(team_id: int, node: DeptNodePreset) -> GtDept:
     lookup_names = list(dict.fromkeys([*node.agents, node.manager]))
     gt_agents = await gtAgentManager.get_team_agents_by_names(
         team_id,
@@ -92,7 +92,7 @@ def _infer_room_type(agent_names: list[str]) -> RoomType:
     return RoomType.GROUP
 
 
-async def _to_gt_room(team_id: int, room_config: TeamRoomConfig) -> GtRoom:
+async def _to_gt_room(team_id: int, room_config: TeamRoomPreset) -> GtRoom:
     agent_ids = await _resolve_room_agent_ids(team_id, list(room_config.agents))
     # 使用稳定 name 作为 DB name；initial_topic 可从 i18n 按语言解析
     initial_topic = room_config.initial_topic
@@ -114,7 +114,7 @@ async def _to_gt_room(team_id: int, room_config: TeamRoomConfig) -> GtRoom:
     )
 
 
-async def _to_gt_agents(team_id: int, team_config: TeamConfig) -> list[GtAgent]:
+async def _to_gt_agents(team_id: int, team_config: TeamPreset) -> list[GtAgent]:
     agents: list[GtAgent] = []
     for agent in team_config.agents:
         role_template = await gtRoleTemplateManager.get_role_template_by_name(agent.role_template)
@@ -140,7 +140,7 @@ async def _to_gt_agents(team_id: int, team_config: TeamConfig) -> list[GtAgent]:
     return agents
 
 
-async def _import_team_from_config(team_config: TeamConfig) -> GtTeam | None:
+async def _import_team_from_config(team_config: TeamPreset) -> GtTeam | None:
     # UUID 优先去重（含已删除）；无 UUID 时按 stable name 匹配（向后兼容旧格式）
     existing: GtTeam | None = None
     if team_config.uuid:
@@ -186,7 +186,7 @@ async def _import_team_from_config(team_config: TeamConfig) -> GtTeam | None:
 
 async def _import_teams_from_app_config() -> None:
     # is_default=True 的团队优先导入（确保排在列表第一位）
-    teams_config = list(configUtil.get_app_config().teams)
+    teams_config = list(configUtil.get_app_config().teams_preset)
     teams_config.sort(key=lambda t: not t.is_default)
 
     for team_config in teams_config:

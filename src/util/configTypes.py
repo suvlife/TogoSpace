@@ -10,17 +10,17 @@ I18nText = dict[str, str]   # e.g. {"zh-CN": "研究员", "en": "Researcher"}
 I18nData = dict[str, I18nText]  # e.g. {"display_name": {"zh-CN": "研究员", "en": "Researcher"}}
 
 
-class DeptNodeConfig(BaseModel):
+class DeptNodePreset(BaseModel):
     """递归的部门树节点，对应 config 中 dept_tree 的每个节点（配置文件用）。"""
     dept_name: str = ""
     i18n: "I18nData | None" = None  # 含 dept_name, responsibility 等多语言字段
     responsibility: str = ""
     manager: str
     agents: List[str] = Field(default_factory=list)
-    children: List["DeptNodeConfig"] = Field(default_factory=list)
+    children: List["DeptNodePreset"] = Field(default_factory=list)
 
 
-DeptNodeConfig.model_rebuild()
+DeptNodePreset.model_rebuild()
 
 
 def _default_workspace_root() -> str:
@@ -74,7 +74,7 @@ def _validate_llm_provider_params(value: dict[str, Any]) -> dict[str, Any]:
     return value
 
 
-class AgentConfig(BaseModel):
+class AgentPreset(BaseModel):
     """Configuration for an agent in a team, referencing a role template."""
     name: str  # Nickname of the agent in the team
     i18n: I18nData | None = None  # 多语言数据，含 display_name
@@ -84,7 +84,7 @@ class AgentConfig(BaseModel):
     allow_tools: List[str] | None = None
 
 
-class TeamRoomConfig(BaseModel):
+class TeamRoomPreset(BaseModel):
     """Single room item in team config."""
     id: Optional[int] = None
     name: str = ""
@@ -96,20 +96,20 @@ class TeamRoomConfig(BaseModel):
     tags: List[str] = Field(default_factory=list)
 
 
-class TeamConfig(BaseModel):
+class TeamPreset(BaseModel):
     """Canonical team config shape loaded from JSON/DB."""
     uuid: str | None = None  # 团队唯一标识，用于 UUID 去重
     name: str
     i18n: I18nData | None = None  # 多语言数据，含 display_name
     config: dict[str, Any] = Field(default_factory=dict)
-    agents: List[AgentConfig] = Field(default_factory=list)
-    dept_tree: Optional[DeptNodeConfig] = None
-    preset_rooms: List[TeamRoomConfig] = Field(default_factory=list)
+    agents: List[AgentPreset] = Field(default_factory=list)
+    dept_tree: Optional[DeptNodePreset] = None
+    preset_rooms: List[TeamRoomPreset] = Field(default_factory=list)
     auto_start: bool = True  # 导入后是否自动启动（enabled）；False 则以停用状态导入
     is_default: bool = False  # 是否为默认团队（首次访问时优先展示）
 
 
-class RoleTemplateConfig(BaseModel):
+class RoleTemplatePreset(BaseModel):
     """Role template definition loaded from config/role_templates/*.json."""
     name: str
     i18n: I18nData | None = None  # 多语言数据，含 display_name
@@ -211,5 +211,5 @@ class SettingConfig(BaseModel):
 
 class AppConfig(BaseModel):
     setting: SettingConfig = Field(default_factory=SettingConfig)
-    role_templates: List[RoleTemplateConfig] = Field(default_factory=list)
-    teams: List[TeamConfig] = Field(default_factory=list)
+    role_templates_preset: List[RoleTemplatePreset] = Field(default_factory=list)
+    teams_preset: List[TeamPreset] = Field(default_factory=list)

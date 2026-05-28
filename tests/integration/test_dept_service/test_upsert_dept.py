@@ -14,7 +14,7 @@ from model.dbModel.gtTeam import GtTeam
 from model.dbModel.gtAgent import GtAgent
 from model.dbModel.gtRoleTemplate import GtRoleTemplate
 from service import deptService, ormService
-from util.configTypes import AgentConfig
+from util.configTypes import AgentPreset
 from constants import EmployStatus
 
 
@@ -45,7 +45,7 @@ class TestUpsertDept(ServiceTestCase):
             GtRoleTemplate(name="dummy", model="gpt-4o")
         )
         team = await gtTeamManager.save_team(GtTeam(name=team_name))
-        configs = [AgentConfig(name=n, role_template="dummy") for n in agent_names]
+        configs = [AgentPreset(name=n, role_template="dummy") for n in agent_names]
         agents = []
         for cfg in configs:
             rt_id = await gtRoleTemplateManager.resolve_role_template_id_by_name(cfg.role_template)

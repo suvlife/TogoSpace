@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from service import presetService
-from util.configTypes import TeamConfig
+from util.configTypes import TeamPreset
 
 
 @pytest.mark.asyncio
@@ -18,16 +18,16 @@ async def test_import_teams_from_app_config_sorts_by_is_default(monkeypatch):
 
     # 模拟 AppConfig 返回未排序的团队列表（非默认在前，默认在后）
     mock_teams = [
-        TeamConfig(name="团队B", uuid="team-b", is_default=False, auto_start=True, agents=[]),
-        TeamConfig(name="团队A", uuid="team-a", is_default=True, auto_start=True, agents=[]),
-        TeamConfig(name="团队C", uuid="team-c", is_default=False, auto_start=True, agents=[]),
+        TeamPreset(name="团队B", uuid="team-b", is_default=False, auto_start=True, agents=[]),
+        TeamPreset(name="团队A", uuid="team-a", is_default=True, auto_start=True, agents=[]),
+        TeamPreset(name="团队C", uuid="team-c", is_default=False, auto_start=True, agents=[]),
     ]
 
-    mock_app_config = SimpleNamespace(teams=mock_teams, role_templates=[])
+    mock_app_config = SimpleNamespace(teams_preset=mock_teams, role_templates_preset=[])
 
     monkeypatch.setattr(presetService.configUtil, "get_app_config", lambda: mock_app_config)
 
-    async def _mock_import_team(team_config: TeamConfig):
+    async def _mock_import_team(team_config: TeamPreset):
         import_order.append(team_config.name)
         return SimpleNamespace(id=len(import_order), name=team_config.name)
 

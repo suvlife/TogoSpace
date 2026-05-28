@@ -15,23 +15,23 @@ from service import presetService, agentService, ormService, persistenceService,
 from service.agentService import Agent
 from util import configUtil
 from util.llmApiUtil import OpenAIMessage, OpenaiApiRole
-from util.configTypes import TeamConfig, AgentConfig, TeamRoomConfig, DeptNodeConfig
+from util.configTypes import TeamPreset, AgentPreset, TeamRoomPreset, DeptNodePreset
 from ...base import ServiceTestCase
 
 TEAM = "test_team"
-TEAMS_CONFIG = [TeamConfig(
+TEAMS_CONFIG = [TeamPreset(
     name=TEAM,
     agents=[
-        AgentConfig(name="alice", role_template="alice"),
-        AgentConfig(name="bob", role_template="bob"),
+        AgentPreset(name="alice", role_template="alice"),
+        AgentPreset(name="bob", role_template="bob"),
     ],
-    dept_tree=DeptNodeConfig(
+    dept_tree=DeptNodePreset(
         dept_name="研发部",
         responsibility="负责协作与开发",
         manager="alice",
         agents=["alice", "bob"],
     ),
-    preset_rooms=[TeamRoomConfig(name="r1", agents=["alice", "bob"], max_rounds=3)],
+    preset_rooms=[TeamRoomPreset(name="r1", agents=["alice", "bob"], max_rounds=3)],
 )]
 
 if os.name == "posix" and sys.platform == "darwin":
@@ -136,8 +136,8 @@ class TestRestoreAgentHistory(ServiceTestCase):
         agents = await ServiceTestCase.convert_to_gt_agents(
             team.id,
             [
-                AgentConfig(name="alice", role_template="alice"),
-                AgentConfig(name="bob", role_template="bob"),
+                AgentPreset(name="alice", role_template="alice"),
+                AgentPreset(name="bob", role_template="bob"),
             ],
         )
         await gtAgentManager.batch_save_agents(team.id, agents)
