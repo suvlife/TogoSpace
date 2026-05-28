@@ -77,14 +77,41 @@ class TestPythonTypeToJsonSchema(ServiceTestCase):
         assert python_type_to_json_schema(Optional[str]) == {"type": "string"}
 
     async def test_optional_list_str(self):
-        """Optional[list[str]] 应映射为 array。"""
-        assert python_type_to_json_schema(Optional[list[str]]) == {"type": "array"}
+        """Optional[list[str]] 应映射为 array with items。"""
+        assert python_type_to_json_schema(Optional[list[str]]) == {"type": "array", "items": {"type": "string"}}
 
-    async def test_unknown_falls_back_to_object(self):
-        """未知类型默认回退为 object，保证 schema 可生成。"""
+    async def test_list_int(self):
+        """list[int] 映射为 array with integer items。"""
+        assert python_type_to_json_schema(list[int]) == {"type": "array", "items": {"type": "integer"}}
+
+    async def test_list_float(self):
+        """list[float] 映射为 array with number items。"""
+        assert python_type_to_json_schema(list[float]) == {"type": "array", "items": {"type": "number"}}
+
+    async def test_list_nested(self):
+        """list[list[int]] 映射为嵌套 array。"""
+        assert python_type_to_json_schema(list[list[int]]) == {
+            "type": "array",
+            "items": {"type": "array", "items": {"type": "integer"}}
+        }
+
+    async def test_bare_list_raises(self):
+        """裸 list 缺少元素类型注解应报错。"""
+        import pytest
+        with pytest.raises(TypeError):
+            python_type_to_json_schema(list)
+
+    async def test_optional_list_int(self):
+        """Optional[list[int]] 应映射为 array with integer items。"""
+        assert python_type_to_json_schema(Optional[list[int]]) == {"type": "array", "items": {"type": "integer"}}
+
+    async def test_unknown_type_raises(self):
+        """未知类型应报错，不静默兜底。"""
+        import pytest
         class Custom:
             pass
-        assert python_type_to_json_schema(Custom) == {"type": "object"}
+        with pytest.raises(TypeError):
+            python_type_to_json_schema(Custom)
 
 
 

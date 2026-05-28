@@ -27,7 +27,10 @@ def python_type_to_json_schema(python_type: Any) -> Dict[str, Any]:
 
     origin = get_origin(python_type)
     if origin is list:
-        return {"type": "array"}
+        args = get_args(python_type)
+        if not args:
+            raise TypeError(f"list 类型缺少元素类型注解，请使用 list[T] 形式")
+        return {"type": "array", "items": python_type_to_json_schema(args[0])}
     if origin is dict:
         return {"type": "object"}
 
@@ -36,7 +39,6 @@ def python_type_to_json_schema(python_type: Any) -> Dict[str, Any]:
         int: {"type": "integer"},
         float: {"type": "number"},
         bool: {"type": "boolean"},
-        list: {"type": "array"},
         dict: {"type": "object"},
     }
 
@@ -44,7 +46,7 @@ def python_type_to_json_schema(python_type: Any) -> Dict[str, Any]:
         if python_type is py_type:
             return schema
 
-    return {"type": "object"}
+    raise TypeError(f"不支持的工具参数类型: {python_type}，请使用 str/int/float/bool/dict/list[T]")
 
 
 def get_function_metadata(func_name: str, func: Callable[..., Any]) -> Dict[str, Any]:
