@@ -1,4 +1,6 @@
 import os
+import re
+import contextlib
 import sys
 
 import aiohttp
@@ -96,3 +98,19 @@ class TestSystemStatus(_ApiServiceCase):
         assert data["status"] == "ok"
         assert data["schedule_state"] in ("STOPPED", "BLOCKED", "RUNNING")
         assert "not_running_reason" in data
+
+    async def test_backup_database_returns_created_backup(self):
+        async with aiohttp.ClientSession() as client:
+            async with client.post(f"{self.backend_base_url}/system/database/backup.json") as resp:
+                assert resp.status == 200
+                data = await resp.json()
+
+        backup_path = data["backup_path"]
+        try:
+            assert data["status"] == "ok"
+            assert os.path.isfile(backup_path)
+            assert data["backup_file_name"] == os.path.basename(backup_path)
+            assert re.fullmatch(r".+_\d{8}_\d{6}_\d{6}\.db", data["backup_file_name"])
+        finally:
+            with contextlib.suppress(FileNotFoundError):
+                os.remove(backup_path)

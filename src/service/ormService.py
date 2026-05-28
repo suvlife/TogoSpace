@@ -4,7 +4,6 @@ import logging
 import os
 import sqlite3
 from datetime import datetime
-from pathlib import Path
 from typing import Optional
 
 import aiosqlite
@@ -167,14 +166,17 @@ def backup_database() -> str:
         raise RuntimeError("ormService not started")
 
     source_path = resolve_db_path(db_path)
-    backup_dir = Path(appPaths.DATA_DIR) / "backups"
-    backup_dir.mkdir(parents=True, exist_ok=True)
+    backup_dir = os.path.join(appPaths.DATA_DIR, "backups")
+    os.makedirs(backup_dir, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-    backup_path = backup_dir / f"{source_path.stem}_{timestamp}{source_path.suffix or '.db'}"
+    backup_path = os.path.join(
+        backup_dir,
+        f"{source_path.stem}_{timestamp}{source_path.suffix or '.db'}",
+    )
 
-    with sqlite3.connect(str(source_path)) as source_conn, sqlite3.connect(str(backup_path)) as backup_conn:
+    with sqlite3.connect(str(source_path)) as source_conn, sqlite3.connect(backup_path) as backup_conn:
         source_conn.backup(backup_conn)
 
     logger.info("Database backup created: source=%s, backup=%s", source_path, backup_path)
-    return str(backup_path)
+    return backup_path
