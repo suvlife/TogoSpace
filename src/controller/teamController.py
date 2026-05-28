@@ -172,6 +172,7 @@ class TeamDetailHandler(BaseHandler):
                 "id": agent.id,
                 "name": agent.name,
                 "i18n": agent.i18n or {},
+                "employee_number": agent.employee_number,
                 "role_template_id": agent.role_template_id,
             }
             for agent in agents
