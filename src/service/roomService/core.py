@@ -454,7 +454,9 @@ async def upsert_room(
         existing.initial_topic = initial_topic
         existing.max_rounds = max_rounds
         existing.agent_ids = agent_ids
-        return await gtRoomManager.save_room(existing)
+        saved = await gtRoomManager.save_room(existing)
+        messageBus.publish(MessageBusTopic.ROOM_ADDED, gt_room=saved, team_id=team_id)
+        return saved
 
     new_room = GtRoom(
         team_id=team_id,
@@ -466,7 +468,9 @@ async def upsert_room(
         biz_id=None,
         tags=[],
     )
-    return await gtRoomManager.save_room(new_room)
+    saved = await gtRoomManager.save_room(new_room)
+    messageBus.publish(MessageBusTopic.ROOM_ADDED, gt_room=saved, team_id=team_id)
+    return saved
 
 
 async def delete_managed_room(team_id: int, room_id: int) -> None:
