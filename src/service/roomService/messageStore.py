@@ -123,12 +123,15 @@ class RoomMessageStore:
         return await self._flush(immediate_only=True)
 
     async def flush_queued(self) -> List[GtRoomMessage]:
-        """将 insert_immediately=False 的 pending 消息分配 seq 并更新 DB，返回已处理列表。"""
+        """将所有 pending 消息分配 seq 并更新 DB，返回已处理列表。"""
         return await self._flush(immediate_only=False)
 
     async def _flush(self, *, immediate_only: bool) -> List[GtRoomMessage]:
-        kind = "immediately" if immediate_only else "queued"
-        pending = [m for m in self._messages if m.seq is None and m.insert_immediately == immediate_only]
+        kind = "immediately" if immediate_only else "all"
+        if immediate_only:
+            pending = [m for m in self._messages if m.seq is None and m.insert_immediately]
+        else:
+            pending = [m for m in self._messages if m.seq is None]
         if not pending:
             return []
         for msg in pending:

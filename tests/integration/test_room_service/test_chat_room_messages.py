@@ -227,6 +227,38 @@ class TestChatRoomMessages(ServiceTestCase):
         await room.add_message(alice_id, "普通消息")
         assert room.has_pending_immediate_messages(bob_id) is False
 
+    async def test_flush_queued_messages_also_flushes_pending_immediate(self):
+        """flush_queued_messages 应同时处理 pending immediate 消息，使其进入主流并触发下一轮调度。
+
+        复现场景：agent 执行中收到 immediately 消息，轮次结束前未注入，
+        flush_queued_messages 应兜底将其落地，而不是永远卡在 pending 状态。
+        """
+        await self.create_room(TEAM, "imm_flush_queued_room", ["alice", "bob"], max_rounds=10, room_type=RoomType.PRIVATE)
+        room = roomService.get_room_by_key(f"imm_flush_queued_room@{TEAM}")
+        await room.activate_scheduling()
+        alice_id = await self._get_agent_id("alice")
+        bob_id = await self._get_agent_id("bob")
+
+        await room.get_unread_messages(bob_id)
+
+        # 模拟 agent 执行中收到 immediately 消息但未注入的场景
+        await room.add_message(alice_id, "即时消息", insert_immediately=True)
+        assert room.has_pending_immediate_messages(bob_id) is True
+
+        # 轮次结束时调用 flush_queued_messages，应兜底处理 pending immediate
+        await room.flush_queued_messages()
+
+        assert room.has_pending_immediate_messages(bob_id) is False
+        unread = await room.get_unread_messages(bob_id)
+        assert len(unread) == 1
+        assert unread[0].insert_immediately is True
+        assert unread[0].seq is not None
+
+        rows, _ = await gtRoomMessageManager.get_room_messages(room.room_id)
+        imm_row = next((r for r in rows if r.insert_immediately), None)
+        assert imm_row is not None
+        assert imm_row.seq == unread[0].seq
+
     async def test_flush_pending_assigns_seq_and_appears_in_stream(self):
         """flush_pending_immediate_messages 后消息进入主流，seq 被赋值，DB 更新。"""
         await self.create_room(TEAM, "imm_flush_room", ["alice", "bob"], max_rounds=10, room_type=RoomType.PRIVATE)

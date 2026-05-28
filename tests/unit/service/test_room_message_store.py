@@ -105,10 +105,10 @@ class TestHasPendingImmediateMessages:
 
 
 class TestFlushQueued:
-    """flush_queued()：只处理 insert_immediately=False 的 pending 消息。"""
+    """flush_queued()：处理所有 pending 消息（immediate + queued）。"""
 
-    async def test_flush_queued_assigns_seq_to_queued_only(self, mock_room):
-        """flush_queued 只对 insert_immediately=False 的 pending 消息分配 seq。"""
+    async def test_flush_queued_assigns_seq_to_all_pending(self, mock_room):
+        """flush_queued 对所有 pending 消息（queued 和 immediate）分配 seq。"""
         store = RoomMessageStore(gt_room=mock_room)
         await store.append_and_assign_seq(_msg(content="before"))  # seq=0
         queued = _msg(insert_immediately=False, content="queued")
@@ -117,19 +117,25 @@ class TestFlushQueued:
         store.append_pending(immediate)
 
         flushed = await store.flush_queued()
-        assert len(flushed) == 1
-        assert flushed[0].content == "queued"
-        assert flushed[0].seq == 1
-        # immediate 消息仍在 pending
-        assert store.has_pending_immediate_messages(agent_id=1) is True
-        assert len(store.pending_messages) == 1
+        assert len(flushed) == 2
+        assert all(m.seq is not None for m in flushed)
+        assert store.has_pending_immediate_messages(agent_id=1) is False
+        assert len(store.pending_messages) == 0
 
     async def test_flush_queued_returns_empty_when_none(self, mock_room):
-        """无 queued 消息时返回空列表。"""
+        """无 pending 消息时返回空列表。"""
         store = RoomMessageStore(gt_room=mock_room)
-        store.append_pending(_msg(insert_immediately=True))
         result = await store.flush_queued()
         assert result == []
+
+    async def test_flush_queued_flushes_immediate_only_pending(self, mock_room):
+        """只有 immediate pending 消息时，flush_queued 也应处理。"""
+        store = RoomMessageStore(gt_room=mock_room)
+        store.append_pending(_msg(insert_immediately=True, content="immediate"))
+        flushed = await store.flush_queued()
+        assert len(flushed) == 1
+        assert flushed[0].seq == 0
+        assert store.has_pending_immediate_messages(agent_id=1) is False
 
     async def test_flush_queued_seq_continues_from_main_list(self, mock_room):
         """queued 消息的 seq 紧接在已有主流消息之后。"""
