@@ -447,6 +447,48 @@ class TestAgentHistoryCrossRoom(_agentServiceCase):
         assert any("roomName: alice_private" in content for content in history_contents)
 
 
+class TestClearAgentData(_agentServiceCase):
+    """clear_agent_data 集成测试：真实数据库删除历史并恢复运行时。"""
+
+    async def test_clear_agent_data_deletes_only_target_agent_history_and_reload_runtime(self):
+        team = await gtTeamManager.get_team(TEAM)
+        assert team is not None
+
+        alice_id = agentService.get_agent_id_by_stable_name(team.id, "alice")
+        bob_id = agentService.get_agent_id_by_stable_name(team.id, "bob")
+        alice = agentService.get_agent(alice_id)
+        bob = agentService.get_agent(bob_id)
+
+        alice_item = await alice.task_consumer._turn_runner._history.append_history_message(
+            GtAgentHistory.build(llmApiUtil.OpenAIMessage.text(llmApiUtil.OpenaiApiRole.USER, "alice-before-clear"))
+        )
+        bob_item = await bob.task_consumer._turn_runner._history.append_history_message(
+            GtAgentHistory.build(llmApiUtil.OpenAIMessage.text(llmApiUtil.OpenaiApiRole.USER, "bob-keep"))
+        )
+        assert alice_item.id is not None
+        assert bob_item.id is not None
+
+        alice_histories_before = await persistenceService.load_agent_history_message(alice_id)
+        bob_histories_before = await persistenceService.load_agent_history_message(bob_id)
+        assert [item.content for item in alice_histories_before] == ["alice-before-clear"]
+        assert [item.content for item in bob_histories_before] == ["bob-keep"]
+
+        result = await teamService.clear_agent_data(alice_id)
+        assert result == {"histories": 1}
+
+        alice_histories_after = await persistenceService.load_agent_history_message(alice_id)
+        bob_histories_after = await persistenceService.load_agent_history_message(bob_id)
+        assert alice_histories_after == []
+        assert [item.content for item in bob_histories_after] == ["bob-keep"]
+
+        reloaded_alice = agentService.get_agent(alice_id)
+        reloaded_bob = agentService.get_agent(bob_id)
+        assert reloaded_alice is not alice
+        assert reloaded_bob is not bob
+        assert list(reloaded_alice.task_consumer._turn_runner._history) == []
+        assert [item.content for item in reloaded_bob.task_consumer._turn_runner._history] == ["bob-keep"]
+
+
 class TestAgentSystemPrompt(_agentServiceCase):
     """Agent 系统提示词相关测试。"""
 
