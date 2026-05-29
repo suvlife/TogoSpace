@@ -384,6 +384,72 @@ async def test_list_tasks_basic_call_returns_tasks(task_manager_mock):
 
 
 @pytest.mark.asyncio
+async def test_create_task_publishes_task_created_event(task_manager_mock, saved_task):
+    """创建任务成功时应发布 TASK_CREATED 事件。"""
+    task_manager_mock.create_task = AsyncMock(return_value=saved_task)
+
+    with patch("service.messageBus.publish") as mock_publish:
+        result = await taskService.create_task(
+            team_id=1,
+            creator_id=11,
+            title="broadcast test",
+            assignee_id=11,
+        )
+
+    assert result["success"] is True
+    mock_publish.assert_called_once()
+    topic = mock_publish.call_args.args[0]
+    assert topic.name == "TASK_CREATED"
+    assert mock_publish.call_args.kwargs["task"] is saved_task
+
+
+@pytest.mark.asyncio
+async def test_update_task_publishes_task_changed_event(task_manager_mock):
+    """更新任务状态成功时应发布 TASK_CHANGED 事件并携带 old_status。"""
+    task = _build_task(status=TaskStatus.IN_PROGRESS, assignee_id=11, creator_id=11, manager_id=20)
+    task_manager_mock.get_task = AsyncMock(return_value=task)
+    task_manager_mock.update_task = AsyncMock(return_value=task)
+
+    with patch("service.messageBus.publish") as mock_publish:
+        result = await taskService.update_task(team_id=1, caller_id=11, task_id=1, status="REVIEWING")
+
+    assert result["success"] is True
+    mock_publish.assert_called_once()
+    topic = mock_publish.call_args.args[0]
+    assert topic.name == "TASK_CHANGED"
+    assert mock_publish.call_args.kwargs["task"] is task
+    assert mock_publish.call_args.kwargs["old_status"] == "IN_PROGRESS"
+
+
+@pytest.mark.asyncio
+async def test_create_task_does_not_publish_on_failure(task_manager_mock):
+    """创建任务失败时不应发布任何事件。"""
+    with patch("service.messageBus.publish") as mock_publish:
+        result = await taskService.create_task(
+            team_id=1,
+            creator_id=11,
+            title="bad priority",
+            assignee_id=11,
+            priority="urgent",
+        )
+
+    assert result["success"] is False
+    mock_publish.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_update_task_does_not_publish_on_failure(task_manager_mock):
+    """更新任务失败时不应发布任何事件。"""
+    task_manager_mock.get_task = AsyncMock(return_value=None)
+
+    with patch("service.messageBus.publish") as mock_publish:
+        result = await taskService.update_task(team_id=1, caller_id=11, task_id=999, status="IN_PROGRESS")
+
+    assert result["success"] is False
+    mock_publish.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_list_tasks_open_only_excludes_done_and_cancelled(task_manager_mock):
     task_manager_mock.list_tasks = AsyncMock(return_value=[_build_task(id=3, status=TaskStatus.IN_PROGRESS)])
 

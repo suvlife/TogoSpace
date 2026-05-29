@@ -66,16 +66,6 @@ class RoomApiResponse(BaseModel):
         )
 
 
-def _infer_room_type_from_agent_ids(agent_ids: List[int]) -> RoomType:
-    ai_count = len([
-        agent_id for agent_id in agent_ids
-        if SpecialAgent.value_of(agent_id) != SpecialAgent.OPERATOR
-    ])
-    if any(SpecialAgent.value_of(agent_id) == SpecialAgent.OPERATOR for agent_id in agent_ids) and ai_count == 1:
-        return RoomType.PRIVATE
-    return RoomType.GROUP
-
-
 async def _assert_agent_ids_in_team(team_id: int, agent_ids: List[int]) -> None:
     if len(agent_ids) == 0:
         return
@@ -273,33 +263,15 @@ class TeamRoomCreateHandler(BaseHandler):
 
     async def post(self, team_id_str: str) -> None:
         request = self.parse_request(CreateRoomRequest)
-
         team_id = int(team_id_str)
-        team = await gtTeamManager.get_team_by_id(team_id)
-        assertUtil.assertNotNull(team, error_message=f"Team ID '{team_id}' not found", error_code="team_not_found")
-        team_name = team.name
 
-        # 检查房间是否已存在
-        existing_rooms = await gtRoomManager.get_rooms_by_team(team_id)
-        existing = next((r for r in existing_rooms if r.name == request.name), None)
-        assertUtil.assertEqual(existing, None, error_message=f"Room '{request.name}' already exists", error_code="room_exists")
-        await _assert_agent_ids_in_team(team_id, request.agent_ids)
-        assertUtil.assertTrue(
-            len(request.agent_ids) >= 2,
-            error_message="room must have at least 2 agents",
-            error_code="room_agents_too_few",
-        )
-        room_type = _infer_room_type_from_agent_ids(request.agent_ids)
-
-        await gtRoomManager.save_room(GtRoom(
+        await roomService.create_room(
             team_id=team_id,
             name=request.name,
-            type=room_type,
+            agent_ids=list(request.agent_ids),
             initial_topic=request.initial_topic or "",
             max_rounds=request.max_rounds,
-            agent_ids=list(request.agent_ids),
-        ))
-        await teamService.hot_reload_team(team_name)
+        )
 
         self.return_json({"status": "created", "room_name": request.name})
 

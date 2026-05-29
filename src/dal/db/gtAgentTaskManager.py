@@ -64,6 +64,15 @@ async def get_first_active_task(agent_id: int) -> GtAgentTask | None:
     )
 
 
+async def delete_tasks_by_team(team_id: int) -> int:
+    """删除团队下所有协作任务。"""
+    return await (
+        GtAgentTask.delete()
+        .where(GtAgentTask.team_id == team_id)
+        .aio_execute()
+    )
+
+
 async def update_task(task: GtAgentTask, fields: list) -> GtAgentTask:
     """更新指定字段，同时刷新 updated_at。"""
     task.updated_at = datetime.datetime.now()

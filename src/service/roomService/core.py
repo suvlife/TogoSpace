@@ -190,16 +190,12 @@ async def get_or_create_control_room(team_id: int, agent_id: int) -> tuple[ChatR
     gt_agent = await gtAgentManager.get_agent_by_id(agent_id)
     agent_name = gt_agent.name if gt_agent else str(agent_id)
 
-    new_gt_room = GtRoom(
+    saved_room = await create_room(
         team_id=team_id,
         name=agent_name,
-        type=RoomType.PRIVATE,
-        initial_topic="",
+        agent_ids=[SpecialAgent.OPERATOR.value, agent_id],
         max_rounds=-1,
-        agent_ids=[int(SpecialAgent.OPERATOR.value), agent_id],
     )
-    saved_room = await gtRoomManager.save_room(new_gt_room)
-    await _load_room(gt_team=gt_team, gt_room=saved_room)
 
     room = _rooms_by_id[saved_room.id]
     await room.activate_scheduling()
@@ -415,6 +411,63 @@ async def load_and_activate_room(room_id: int) -> None:
     room = _rooms_by_id[room_id]
     if room._agent_ids:
         await room.activate_scheduling()
+
+
+async def create_room(
+    team_id: int,
+    name: str,
+    agent_ids: list[int],
+    initial_topic: str = "",
+    max_rounds: int | None = None,
+) -> GtRoom:
+    """创建房间：校验合法性、自动推断类型、私聊房间自动生成话题、落库并热更新。
+
+    Raises:
+        TogoException: 参数非法或数据库操作失败。
+    """
+    team = await gtTeamManager.get_team_by_id(team_id)
+    assert team is not None, f"Team ID '{team_id}' not found"
+
+    # 同名检查
+    existing_rooms = await gtRoomManager.get_rooms_by_team(team_id)
+    if any(r.name == name for r in existing_rooms):
+        raise TogoException(f"Room '{name}' already exists", error_code="room_exists")
+
+    if SpecialAgent.SYSTEM.value in agent_ids:
+        raise TogoException("system agent is not allowed in room agents", error_code="system_agent_not_allowed")
+
+    team_agents = await gtAgentManager.get_team_all_agents(team_id)
+    team_agent_ids = {a.id for a in team_agents}
+    missing = [aid for aid in agent_ids if aid not in team_agent_ids and SpecialAgent.value_of(aid) is None]
+    if missing:
+        raise TogoException(f"agent IDs not in team: {missing}", error_code="agent_not_in_team")
+
+    if len(agent_ids) < 2:
+        raise TogoException("room must have at least 2 agents", error_code="room_agents_too_few")
+
+    room_type = RoomType.PRIVATE if len(agent_ids) == 2 else RoomType.GROUP
+
+    # 私聊房间自动生成话题
+    if room_type == RoomType.PRIVATE:
+        agents = await gtAgentManager.get_agents_by_ids(agent_ids)
+        initial_topic = i18nUtil.t("private_room_topic", name1=agents[0].display_name, name2=agents[1].display_name)
+
+    new_room = GtRoom(
+        team_id=team_id,
+        name=name,
+        type=room_type,
+        initial_topic=initial_topic,
+        max_rounds=max_rounds,
+        agent_ids=list(agent_ids),
+    )
+    saved = await gtRoomManager.save_room(new_room)
+
+    # 热更新团队
+    from service import teamService
+    await teamService.hot_reload_team(team.name)
+
+    logger.info(f"房间创建: room_id={saved.id}, name={name!r}, type={room_type.name}, agent_ids={agent_ids}")
+    return saved
 
 
 async def upsert_room(
