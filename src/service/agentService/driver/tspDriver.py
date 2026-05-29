@@ -98,7 +98,7 @@ class TspAgentDriver(AgentDriver):
             if self._is_client_connected():
                 return True
 
-            logger.info("TSP 服务断开，尝试重新连接: agent_id=%s", self.host.gt_agent.id)
+            logger.info("TSP 服务未连接，尝试连接: agent_id=%s", self.host.gt_agent.id)
 
             # 清理旧 client
             if self._client is not None:

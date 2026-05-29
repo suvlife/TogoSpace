@@ -192,7 +192,6 @@ async def _import_teams_from_app_config() -> None:
     for team_config in teams_config:
         team = await _import_team_from_config(team_config)
         if team is None:
-            logger.info("Team '%s' 已存在，跳过整组 preset 导入", team_config.name)
             continue
 
     logger.info("Team 配置已导入数据库")

@@ -151,8 +151,9 @@ async def _load_team_agents(team_id: int, workspace_root: str | None = None) -> 
         )
         _agents[gt_agent.id] = agent
         logger.info(
-            "创建 Agent 实例: agent_id=%s, template=%s, model=%s, driver=%s, is_root_leader=%s",
+            "创建 Agent 实例: agent_id=%s, name=%s, template=%s, model=%s, driver=%s, is_root_leader=%s",
             gt_agent.id,
+            gt_agent.name,
             template_name,
             model_name or "<unconfigured>",
             driver_config.driver_type,
