@@ -99,6 +99,12 @@ async def create_task(
     )
     saved = await gtAgentTaskManager.create_task(task)
     logger.info(f"任务创建：task_id={saved.id}, title={title!r}, assignee={assignee_id}, status={initial_status.value}")
+
+    # 广播任务创建事件
+    from service import messageBus as _mb
+    from constants import MessageBusTopic as _MBT
+    _mb.publish(_MBT.TASK_CREATED, task=saved)
+
     return {"success": True, "task_id": saved.id, "message": f"任务已创建，task_id={saved.id}，状态={initial_status.value}"}
 
 
@@ -187,6 +193,11 @@ async def update_task(
 
     updated = await gtAgentTaskManager.update_task(task, fields)
     logger.info(f"任务状态变更：task_id={task_id}, {old_status.value} → {new_status.value}, caller={caller_id}")
+
+    # 广播任务状态变更事件
+    from service import messageBus as _mb
+    from constants import MessageBusTopic as _MBT
+    _mb.publish(_MBT.TASK_CHANGED, task=updated, old_status=old_status.value)
 
     from playhouse.shortcuts import model_to_dict
     return {"success": True, "task": model_to_dict(updated, recurse=False), "message": f"任务状态已更新：{old_status.value} → {new_status.value}"}

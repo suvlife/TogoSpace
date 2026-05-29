@@ -76,6 +76,8 @@ class MessageBusTopic(EnhanceEnum):
     AGENT_ACTIVITY_CHANGED = auto()    # Agent 活动记录变更；payload: event, data
     SCHEDULE_STATE_CHANGED = auto()    # 调度闸门状态变更；payload: schedule_state(str)
     TEAM_RELOADED = auto()             # Team 热更新完成；payload: team_id(int)
+    TASK_CREATED = auto()              # 协作任务创建；payload: task(GtAgentTask)
+    TASK_CHANGED = auto()              # 协作任务状态变更；payload: task(GtAgentTask), old_status(str)
 
 
 class RoomType(EnhanceEnum):
