@@ -19,7 +19,7 @@ jobs:
           - arch: arm64
             runner: macos-latest
           - arch: x86_64
-            runner: macos-14
+            runner: macos-latest
 
     env:
       TARGET_ARCH: ${{ matrix.arch }}
@@ -39,10 +39,50 @@ jobs:
         submodules: recursive
         lfs: true
 
-    - name: Set up Python 3.11
+    # ── arm64: 常规 Python 安装 ──
+    - name: Set up Python 3.11 (arm64)
+      if: matrix.arch == 'arm64'
       uses: actions/setup-python@v6
       with:
         python-version: '3.11'
+
+    # ── x86_64: 通过 Rosetta 2 安装 x86_64 Python ──
+    - name: Set up x86_64 Python via Rosetta 2
+      if: matrix.arch == 'x86_64'
+      run: |
+        echo "🔧 Setting up x86_64 Python via Rosetta 2..."
+
+        # 安装 Python.org universal2 安装包（包含 arm64 + x86_64 双架构）
+        PYTHON_VERSION="3.11.11"
+        curl -fSL "https://www.python.org/ftp/python/${PYTHON_VERSION}/python-${PYTHON_VERSION}-macos11.pkg" \
+          -o /tmp/python.pkg
+        sudo installer -pkg /tmp/python.pkg -target /
+        rm /tmp/python.pkg
+
+        PYTHON_FRAMEWORK="/Library/Frameworks/Python.framework/Versions/3.11/bin"
+
+        # 验证 universal binary
+        echo "=== Universal binary check ==="
+        lipo -info "$PYTHON_FRAMEWORK/python3.11" || true
+
+        # 用 arch -x86_64 创建 x86_64 虚拟环境
+        arch -x86_64 "$PYTHON_FRAMEWORK/python3.11" -m venv "$RUNNER_TEMP/x86_64-venv"
+        VENV="$RUNNER_TEMP/x86_64-venv"
+
+        # 在 x86_64 环境中安装依赖（pip 会下载 x86_64 wheels）
+        "$VENV/bin/python" -m pip install --upgrade pip
+        "$VENV/bin/pip" install -r requirements.txt
+        "$VENV/bin/pip" install pyinstaller
+
+        # 验证架构
+        echo "=== Architecture verification ==="
+        "$VENV/bin/python" --version
+        "$VENV/bin/python" -c "import platform; print(f'Arch: {platform.machine()}')"
+        "$VENV/bin/python" -c "import PIL; print(f'PIL location: {PIL.__file__}')"
+
+        # 将 x86_64 venv 加入 PATH（后续步骤自动使用）
+        echo "$VENV/bin" >> $GITHUB_PATH
+        echo "✅ x86_64 Python environment ready"
 
     - name: Set up Node.js
       uses: actions/setup-node@v6
@@ -50,6 +90,7 @@ jobs:
         node-version: '20'
 
     - name: Cache pip dependencies
+      if: matrix.arch == 'arm64'
       uses: actions/cache@v5
       with:
         path: ~/.cache/pip
@@ -58,7 +99,8 @@ jobs:
           ${{ runner.os }}-pip-release-
           ${{ runner.os }}-pip-
 
-    - name: Install Python dependencies
+    - name: Install Python dependencies (arm64)
+      if: matrix.arch == 'arm64'
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
@@ -112,6 +154,12 @@ jobs:
 
     - name: Build and release
       run: |
+        echo "=== Python environment ==="
+        which python
+        python --version
+        python -c "import platform; print(f'Arch: {platform.machine()}')"
+        echo "========================="
+
         if [ -f scripts/build_config.json ]; then
           python scripts/build_release.py --arch ${{ matrix.arch }}
         else
