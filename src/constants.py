@@ -175,6 +175,11 @@ class AgentActivityStatus(EnhanceEnum):
     CANCELLED = auto()
 
 
+class InferRequestStateType(EnhanceEnum):
+    RETRY_SCHEDULED = auto()
+    RETRYING = auto()
+
+
 class TaskStatus(EnhanceEnum):
     """协作任务状态枚举。"""
     TODO        = "TODO"

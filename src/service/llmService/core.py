@@ -6,7 +6,7 @@ import logging
 import uuid
 from typing import Optional
 
-from constants import LlmServiceType
+from constants import InferRequestStateType, LlmServiceType
 from model.coreModel.gtCoreChatModel import GtCoreAgentDialogContext
 from service.llmService.llmRequestRules import apply_llm_request_rules
 from util import configUtil, llmApiUtil
@@ -45,6 +45,19 @@ class InferResult:
         if self.response is None:
             return None
         return self.response.usage
+
+
+@dataclass
+class InferRequestStatusEvent:
+    state: InferRequestStateType
+    request_id: str = ""
+    attempt: int = 0
+    max_attempts: int = 0
+    retry_delay_seconds: int | None = None
+    error_message: str | None = None
+
+
+InferRequestStatusEventHandler = Callable[[InferRequestStatusEvent], Awaitable[None]]
 
 
 async def startup() -> None:
@@ -97,10 +110,23 @@ def _build_request(
     return apply_llm_request_rules(request)
 
 
+async def _safe_call_handler(
+    on_status_event: InferRequestStatusEventHandler | None,
+    event: InferRequestStatusEvent,
+) -> None:
+    if on_status_event is None:
+        return
+    try:
+        await on_status_event(event)
+    except Exception:
+        logger.exception(f"LLM request status event callback failed: {event.request_id=}, {event.state.name=}")
+
+
 async def _send_with_retry(
     send_request: Callable[..., Awaitable[llmApiUtil.OpenAIResponse]],
     args: tuple,
     kwargs: dict,
+    on_status_event: InferRequestStatusEventHandler | None = None,
 ) -> llmApiUtil.OpenAIResponse:
     last_error: Exception | None = None
     total_attempts = len(_INFER_RETRY_DELAYS_SECONDS) + 1
@@ -110,23 +136,46 @@ async def _send_with_retry(
     for attempt in range(1, total_attempts + 1):
         try:
             return await send_request(*args, **kwargs)
+
         except Exception as e:
+
             last_error = e
             if attempt >= total_attempts:
                 raise
 
             delay = _INFER_RETRY_DELAYS_SECONDS[attempt - 1]
-            logger.warning(
-                "LLM infer retry scheduled: request_id=%s, request=%s, attempt=%d/%d, retry_in=%ss, error=%s",
-                request_id, request_name, attempt, total_attempts, delay, e,
+            await _safe_call_handler(
+                on_status_event,
+                InferRequestStatusEvent(
+                    state=InferRequestStateType.RETRY_SCHEDULED,
+                    request_id=request_id,
+                    attempt=attempt,
+                    max_attempts=total_attempts,
+                    retry_delay_seconds=delay,
+                    error_message=str(e),
+                ),
             )
+            logger.warning(f"LLM infer retry scheduled: {request_id=}, {request_name=}, {attempt=}, {total_attempts=}, {delay=}, {e=}")
             await asyncio.sleep(delay)
+            await _safe_call_handler(
+                on_status_event,
+                InferRequestStatusEvent(
+                    state=InferRequestStateType.RETRYING,
+                    request_id=request_id,
+                    attempt=attempt + 1,
+                    max_attempts=total_attempts,
+                ),
+            )
 
     assert last_error is not None
     raise last_error
 
 
-async def infer(model: str | None, ctx: GtCoreAgentDialogContext) -> InferResult:
+async def infer(
+    model: str | None,
+    ctx: GtCoreAgentDialogContext,
+    on_status_event: InferRequestStatusEventHandler | None = None,
+) -> InferResult:
     """根据 GtCoreAgentDialogContext 组装请求并调用 LLM 推理接口，统一返回成功/失败结果。"""
     request_id = uuid.uuid4().hex
     resolved_model = model
@@ -158,6 +207,7 @@ async def infer(model: str | None, ctx: GtCoreAgentDialogContext) -> InferResult
                 "extra_headers": llm_config.extra_headers,
                 "request_id": request_id,
             },
+            on_status_event=on_status_event,
         )
         logger.info(
             "LLM infer success: request_id=%s, stream=%s, upstream_request_id=%s, usage=%s",
@@ -192,6 +242,7 @@ async def infer_stream(
     model: str | None,
     ctx: GtCoreAgentDialogContext,
     on_progress: Callable[[InferStreamProgress], Awaitable[None] | None] | None = None,
+    on_status_event: InferRequestStatusEventHandler | None = None,
 ) -> InferResult:
     """流式推理：边迭代 chunk 边回调 on_progress，完成后返回与 infer() 一致的 InferResult。"""
     request_id = uuid.uuid4().hex
@@ -261,6 +312,7 @@ async def infer_stream(
                 "on_chunk": _on_chunk,
                 "request_id": request_id,
             },
+            on_status_event=on_status_event,
         )
         logger.info(
             "LLM infer success: request_id=%s, stream=%s, upstream_request_id=%s, usage=%s",

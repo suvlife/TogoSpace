@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, call
 
 import pytest
 
+from constants import InferRequestStateType
 from model.coreModel.gtCoreChatModel import GtCoreAgentDialogContext
 from service import llmService
 from util import configUtil, llmApiUtil
@@ -359,6 +360,7 @@ async def test_infer_passes_provider_params(monkeypatch):
 @pytest.mark.asyncio
 async def test_infer_retries_with_exponential_backoff_until_success(monkeypatch):
     attempts = {"count": 0}
+    status_events: list[llmService.InferRequestStatusEvent] = []
     sleep_mock = AsyncMock()
 
     async def _fake_send_request_non_stream(request, url, api_key, custom_llm_provider=None, extra_headers=None, request_id=""):
@@ -387,17 +389,29 @@ async def test_infer_retries_with_exponential_backoff_until_success(monkeypatch)
         messages=[llmApiUtil.OpenAIMessage.text(llmApiUtil.OpenaiApiRole.USER, "hello")],
     )
 
-    result = await llmService.infer(None, ctx)
+    async def _on_status_event(event: llmService.InferRequestStatusEvent) -> None:
+        status_events.append(event)
+
+    result = await llmService.infer(None, ctx, on_status_event=_on_status_event)
 
     assert result.ok is True
     assert result.response is not None
     assert result.response.choices[0].message.content == "retry-ok"
     assert attempts["count"] == 4
     assert sleep_mock.await_args_list == [call(2), call(4), call(8)]
+    assert [(event.state, event.attempt, event.retry_delay_seconds) for event in status_events] == [
+        (InferRequestStateType.RETRY_SCHEDULED, 1, 2),
+        (InferRequestStateType.RETRYING, 2, None),
+        (InferRequestStateType.RETRY_SCHEDULED, 2, 4),
+        (InferRequestStateType.RETRYING, 3, None),
+        (InferRequestStateType.RETRY_SCHEDULED, 3, 8),
+        (InferRequestStateType.RETRYING, 4, None),
+    ]
 
 
 @pytest.mark.asyncio
 async def test_infer_stream_retries_up_to_limit_then_returns_failure(monkeypatch):
+    status_events: list[llmService.InferRequestStatusEvent] = []
     sleep_mock = AsyncMock()
     fake_send_request_stream = AsyncMock(side_effect=RuntimeError("stream temporary failure"))
 
@@ -421,7 +435,10 @@ async def test_infer_stream_retries_up_to_limit_then_returns_failure(monkeypatch
         messages=[llmApiUtil.OpenAIMessage.text(llmApiUtil.OpenaiApiRole.USER, "hello")],
     )
 
-    result = await llmService.infer_stream(None, ctx)
+    async def _on_status_event(event: llmService.InferRequestStatusEvent) -> None:
+        status_events.append(event)
+
+    result = await llmService.infer_stream(None, ctx, on_status_event=_on_status_event)
 
     assert result.ok is False
     assert result.response is None
@@ -437,3 +454,8 @@ async def test_infer_stream_retries_up_to_limit_then_returns_failure(monkeypatch
         call(32),
         call(32),
     ]
+    assert status_events[0].state == InferRequestStateType.RETRY_SCHEDULED
+    assert status_events[0].attempt == 1
+    assert status_events[0].retry_delay_seconds == 2
+    assert status_events[-1].state == InferRequestStateType.RETRYING
+    assert status_events[-1].attempt == 8

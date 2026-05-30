@@ -6,7 +6,7 @@ from dataclasses import dataclass, fields
 from datetime import datetime
 from typing import Any
 
-from constants import AgentActivityStatus, AgentActivityType, MessageBusTopic
+from constants import AgentActivityStatus, AgentActivityType, InferRequestStateType, MessageBusTopic
 from dal.db import gtAgentActivityManager
 from model.dbModel.gtAgent import GtAgent
 from model.dbModel.gtAgentActivity import GtAgentActivity
@@ -53,6 +53,12 @@ class AgentActivityMeta:
     # 溢出重试
     overflow_retry: bool | None = None
     error_kind: str | None = None
+    # 请求重试状态
+    request_state: str | None = None
+    retry_attempt: int | None = None
+    retry_max_attempts: int | None = None
+    retry_delay_seconds: int | None = None
+    last_retry_error: str | None = None
     # 工具调用
     tool_name: str | None = None
     tool_arguments: Any = None
@@ -73,6 +79,17 @@ class AgentActivityMeta:
             self.final_prompt_tokens = usage.prompt_tokens
             self.final_completion_tokens = usage.completion_tokens
             self.final_total_tokens = usage.total_tokens
+
+    def apply_request_status_event(self, event) -> None:
+        """从 InferRequestStatusEvent 更新请求重试状态字段。"""
+        self.request_state = event.state.name
+        self.retry_attempt = event.attempt
+        self.retry_max_attempts = event.max_attempts
+        self.last_retry_error = event.error_message
+        if event.state == InferRequestStateType.RETRY_SCHEDULED:
+            self.retry_delay_seconds = event.retry_delay_seconds
+        elif event.state == InferRequestStateType.RETRYING:
+            self.retry_delay_seconds = 0
 
     def to_dict(self) -> dict:
         """序列化为 dict，排除值为 None 的字段。"""

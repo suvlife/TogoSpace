@@ -443,6 +443,12 @@ class AgentTurnRunner:
         usage: llmApiUtil.OpenAIUsage | None = None
         assistant_committed = False
         activity_id: int | None = None
+        request_retry_state: dict[str, object] = {
+            "seen": False,
+            "attempt": None,
+            "max_attempts": None,
+            "last_retry_error": None,
+        }
 
         try:
             messages = history.build_infer_messages()
@@ -483,8 +489,29 @@ class AgentTurnRunner:
                     last_progress_time = now
                     chunk_count_since_update = 0
 
+            async def _on_status_event(event: llmService.InferRequestStatusEvent) -> None:
+                request_retry_state["seen"] = True
+                request_retry_state["attempt"] = event.attempt
+                request_retry_state["max_attempts"] = event.max_attempts
+                request_retry_state["last_retry_error"] = event.error_message
+                patch = AgentActivityMeta()
+                patch.apply_request_status_event(event)
+                await agentActivityService.update_activity_progress(activity_id, metadata_patch=patch)
+
+            def _build_request_retry_meta_for_terminal() -> AgentActivityMeta | None:
+                if request_retry_state["seen"] is not True:
+                    return None
+                patch = AgentActivityMeta(
+                    request_state="",
+                    retry_delay_seconds=0,
+                    retry_attempt=request_retry_state["attempt"],
+                    retry_max_attempts=request_retry_state["max_attempts"],
+                    last_retry_error=request_retry_state["last_retry_error"],
+                )
+                return patch
+
             infer_result: llmService.InferResult = await llmService.infer_stream(
-                self.gt_agent.model, ctx, on_progress=_on_progress,
+                self.gt_agent.model, ctx, on_progress=_on_progress, on_status_event=_on_status_event,
             )
 
             # overflow retry
@@ -499,7 +526,15 @@ class AgentTurnRunner:
                     overflow_retry = True
 
                     # 标记当前 infer 活动为 FAILED
-                    await self._finish_activity(activity_id, status=AgentActivityStatus.FAILED, error_message=infer_result.error_message, metadata_patch=AgentActivityMeta(error_kind="context_overflow"))
+                    overflow_meta = AgentActivityMeta(error_kind="context_overflow")
+                    request_retry_meta = _build_request_retry_meta_for_terminal()
+                    if request_retry_meta is not None:
+                        overflow_meta.request_state = request_retry_meta.request_state
+                        overflow_meta.retry_attempt = request_retry_meta.retry_attempt
+                        overflow_meta.retry_max_attempts = request_retry_meta.retry_max_attempts
+                        overflow_meta.retry_delay_seconds = request_retry_meta.retry_delay_seconds
+                        overflow_meta.last_retry_error = request_retry_meta.last_retry_error
+                    await self._finish_activity(activity_id, status=AgentActivityStatus.FAILED, error_message=infer_result.error_message, metadata_patch=overflow_meta)
 
                     compact_ok = await self._execute_compact()
                     if not compact_ok:
@@ -518,12 +553,18 @@ class AgentTurnRunner:
                         detail="overflow 重试", metadata=retry_metadata,
                     )
                     activity_id = activity.id
+                    request_retry_state = {
+                        "seen": False,
+                        "attempt": None,
+                        "max_attempts": None,
+                        "last_retry_error": None,
+                    }
                     last_progress_time = time.monotonic()
                     chunk_count_since_update = 0
 
                     ctx = GtCoreAgentDialogContext(system_prompt=self.system_prompt, messages=messages, tools=tools, tool_choice=tool_choice)
                     infer_result = await llmService.infer_stream(
-                        self.gt_agent.model, ctx, on_progress=_on_progress,
+                        self.gt_agent.model, ctx, on_progress=_on_progress, on_status_event=_on_status_event,
                     )
 
                 if infer_result.ok is False or infer_result.response is None:
@@ -559,6 +600,13 @@ class AgentTurnRunner:
             # 活动记录：LLM_INFER SUCCEEDED
             final_meta = AgentActivityMeta()
             final_meta.apply_usage(usage)
+            request_retry_meta = _build_request_retry_meta_for_terminal()
+            if request_retry_meta is not None:
+                final_meta.request_state = request_retry_meta.request_state
+                final_meta.retry_attempt = request_retry_meta.retry_attempt
+                final_meta.retry_max_attempts = request_retry_meta.retry_max_attempts
+                final_meta.retry_delay_seconds = request_retry_meta.retry_delay_seconds
+                final_meta.last_retry_error = request_retry_meta.last_retry_error
             await self._finish_activity(activity_id, status=AgentActivityStatus.SUCCEEDED, metadata_patch=final_meta)
 
             # 活动记录：思考内容和直接发言
@@ -634,7 +682,12 @@ class AgentTurnRunner:
             )
             # 活动记录：LLM_INFER FAILED（pre-check compact 失败时 activity_id 为 None，无需更新）
             if activity_id is not None:
-                await self._finish_activity(activity_id, status=AgentActivityStatus.FAILED, error_message=str(e))
+                await self._finish_activity(
+                    activity_id,
+                    status=AgentActivityStatus.FAILED,
+                    error_message=str(e),
+                    metadata_patch=_build_request_retry_meta_for_terminal(),
+                )
             raise
 
     async def _run_tool_to_item(self, tool_call: llmApiUtil.OpenAIToolCall, output_item: GtAgentHistory, room: ChatRoom | None) -> TurnStepResult:

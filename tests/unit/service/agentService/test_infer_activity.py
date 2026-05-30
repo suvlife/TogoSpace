@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from constants import AgentActivityType, AgentHistoryStatus, DriverType
+from constants import AgentActivityType, AgentHistoryStatus, DriverType, InferRequestStateType
 from model.dbModel.gtAgent import GtAgent
 from model.dbModel.gtAgentHistory import GtAgentHistory
 from service.agentService.agentHistoryStore import CompactPlan
@@ -239,3 +239,60 @@ async def test_infer_skips_activities_for_empty_content():
     assert AgentActivityType.LLM_INFER in call_types
     assert AgentActivityType.REASONING not in call_types
     assert AgentActivityType.CHAT_REPLY not in call_types
+
+
+@pytest.mark.asyncio
+async def test_infer_updates_activity_with_retry_status_metadata():
+    """推理发生重试时，应把重试状态写入同一条 LLM_INFER activity metadata。"""
+    runner, history = _make_runner_and_history()
+    runner._current_room = MagicMock()
+    runner._current_room.room_id = 1
+
+    resp = _make_mock_response(content="重试后成功")
+    choice = MagicMock()
+    choice.message = resp.choices[0].message
+    choice.finish_reason = "stop"
+    resp.choices = [choice]
+    resp.usage = _make_usage()
+    output_item = _make_history_item()
+
+    mock_activity_svc = _mock_activity_service()
+
+    async def _fake_infer_stream(model, ctx, on_progress=None, on_status_event=None):
+        assert on_status_event is not None
+        await on_status_event(llmService.InferRequestStatusEvent(
+            state=InferRequestStateType.RETRY_SCHEDULED,
+            request_id="req-1",
+            attempt=1,
+            max_attempts=8,
+            retry_delay_seconds=2,
+            error_message="temporary failure",
+        ))
+        await on_status_event(llmService.InferRequestStatusEvent(
+            state=InferRequestStateType.RETRYING,
+            request_id="req-1",
+            attempt=2,
+            max_attempts=8,
+        ))
+        return llmService.InferResult.success(resp, request_id="req-1")
+
+    with (
+        patch(_CONFIG_PATCH, return_value=_mock_config()),
+        patch(_INFER_STREAM_PATCH, AsyncMock(side_effect=_fake_infer_stream)),
+        patch(_ESTIMATE_PATCH, return_value=1000),
+        patch(_ACTIVITY_PATCH, mock_activity_svc),
+    ):
+        result_msg = await runner._infer_to_item(output_item, tools=[])
+
+    assert result_msg.content == "重试后成功"
+    metadata_patches = [
+        call.kwargs["metadata_patch"]
+        for call in mock_activity_svc.update_activity_progress.call_args_list
+        if "metadata_patch" in call.kwargs and call.kwargs["metadata_patch"] is not None
+    ]
+    assert any(getattr(patch, "request_state", None) == "RETRY_SCHEDULED" for patch in metadata_patches)
+    assert any(getattr(patch, "request_state", None) == "RETRYING" for patch in metadata_patches)
+    final_patch = metadata_patches[-1]
+    assert getattr(final_patch, "request_state", None) == ""
+    assert getattr(final_patch, "retry_attempt", None) == 2
+    assert getattr(final_patch, "retry_max_attempts", None) == 8
