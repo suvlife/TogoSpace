@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 _VALID_TRANSITIONS: dict[TaskStatus, set[TaskStatus]] = {
-    TaskStatus.TODO:        {TaskStatus.IN_PROGRESS, TaskStatus.PENDING, TaskStatus.CANCELLED},
+    TaskStatus.TODO:        {TaskStatus.IN_PROGRESS, TaskStatus.PENDING, TaskStatus.ON_HOLD, TaskStatus.DONE, TaskStatus.CANCELLED},
     TaskStatus.PENDING:     {TaskStatus.IN_PROGRESS, TaskStatus.CANCELLED},
     TaskStatus.IN_PROGRESS: {TaskStatus.REVIEWING, TaskStatus.DONE, TaskStatus.ON_HOLD, TaskStatus.CANCELLED},
     TaskStatus.REVIEWING:   {TaskStatus.DONE, TaskStatus.IN_PROGRESS},
