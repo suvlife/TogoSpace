@@ -69,10 +69,18 @@ jobs:
         rm "$VENV/bin/python3"
         mv /tmp/python3_x86_64 "$VENV/bin/python3"
         chmod +x "$VENV/bin/python3"
+        # 同时替换 python（无后缀），确保所有调用路径都是 x86_64
+        if [ -L "$VENV/bin/python" ] || [ -f "$VENV/bin/python" ]; then
+          rm "$VENV/bin/python"
+          cp "$VENV/bin/python3" "$VENV/bin/python"
+          chmod +x "$VENV/bin/python"
+        fi
         echo "After lipo (x86_64-only):"
         lipo -info "$VENV/bin/python3"
+        lipo -info "$VENV/bin/python"
         # 验证架构
-        "$VENV/bin/python3" -c "import platform; print(f'Venv Python Arch: {platform.machine()}')"
+        "$VENV/bin/python3" -c "import platform; print(f'Venv Python3 Arch: {platform.machine()}')"
+        "$VENV/bin/python" -c "import platform; print(f'Venv Python Arch: {platform.machine()}')"
 
         # 安装 uv（快速包管理器，原生支持 --python-platform 跨平台安装）
         curl -LsSf https://astral.sh/uv/install.sh | sh
