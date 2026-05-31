@@ -443,7 +443,7 @@ class AgentTurnRunner:
         usage: llmApiUtil.OpenAIUsage | None = None
         assistant_committed = False
         activity_id: int | None = None
-        request_retry_state: dict[str, object] = {
+        request_retry_state: dict[str, bool | int | str | None] = {
             "seen": False,
             "attempt": None,
             "max_attempts": None,
