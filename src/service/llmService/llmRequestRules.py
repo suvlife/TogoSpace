@@ -6,7 +6,9 @@ from util import jsonUtil, llmApiUtil
 
 logger = logging.getLogger(__name__)
 
-_THINKING_MODELS: tuple[str, ...] = (
+# 这些模型默认会输出 reasoning_content 字段，需要自动开启 thinking 模式，
+# 否则历史消息中缺少 reasoning_content 会导致 API 报错。
+_AUTO_ENABLE_THINKING_MODELS: tuple[str, ...] = (
     "deepseek-r1",
     "deepseek-reasoner",
     "deepseek-v4",
@@ -45,7 +47,7 @@ def _is_thinking_enabled(
     thinking = (request.provider_params or {}).get("thinking") or {}
     if isinstance(thinking, dict):
         thinking_type = thinking.get("type")
-        if thinking_type == "enabled":
+        if thinking_type in ("enabled", "adaptive"):
             return True
         if thinking_type == "disabled":
             return False
@@ -62,7 +64,7 @@ class StripRequiredToolChoiceForReasoningRule(LlmRequestRule):
 
     def check_match(self, request: llmApiUtil.OpenAIRequest) -> bool:
         return request.tool_choice == "required" and _is_thinking_enabled(
-            request, _THINKING_MODELS,
+            request, _AUTO_ENABLE_THINKING_MODELS,
         )
 
     def apply(self, request: llmApiUtil.OpenAIRequest) -> llmApiUtil.OpenAIRequest:
@@ -76,7 +78,7 @@ class FillMissingReasoningContentRule(LlmRequestRule):
     """
 
     def check_match(self, request: llmApiUtil.OpenAIRequest) -> bool:
-        if not _is_thinking_enabled(request, _THINKING_MODELS):
+        if not _is_thinking_enabled(request, _AUTO_ENABLE_THINKING_MODELS):
             return False
         return any(
             msg.role == llmApiUtil.OpenaiApiRole.ASSISTANT

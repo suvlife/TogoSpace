@@ -1,6 +1,6 @@
 import pytest
 from service.llmService.llmRequestRules import (
-    _THINKING_MODELS,
+    _AUTO_ENABLE_THINKING_MODELS,
     _is_thinking_enabled,
     _model_in_list,
     apply_llm_request_rules,
@@ -30,30 +30,30 @@ def _make_assistant_tool_call_msg(reasoning_content=None):
 
 
 def test_model_in_list_deepseek_r1():
-    assert _model_in_list("deepseek-r1", _THINKING_MODELS) is True
+    assert _model_in_list("deepseek-r1", _AUTO_ENABLE_THINKING_MODELS) is True
 
 
 def test_model_in_list_deepseek_v4_pro():
-    assert _model_in_list("deepseek-v4-pro", _THINKING_MODELS) is True
+    assert _model_in_list("deepseek-v4-pro", _AUTO_ENABLE_THINKING_MODELS) is True
 
 
 def test_model_in_list_deepseek_pro():
-    assert _model_in_list("deepseek-pro", _THINKING_MODELS) is True
+    assert _model_in_list("deepseek-pro", _AUTO_ENABLE_THINKING_MODELS) is True
 
 
 def test_model_in_list_deepseek_reasoner():
-    assert _model_in_list("deepseek-reasoner", _THINKING_MODELS) is True
+    assert _model_in_list("deepseek-reasoner", _AUTO_ENABLE_THINKING_MODELS) is True
 
 
 def test_model_in_list_non_thinking():
-    assert _model_in_list("gpt-4o", _THINKING_MODELS) is False
-    assert _model_in_list("claude-3-opus", _THINKING_MODELS) is False
-    assert _model_in_list("deepseek-chat", _THINKING_MODELS) is False
+    assert _model_in_list("gpt-4o", _AUTO_ENABLE_THINKING_MODELS) is False
+    assert _model_in_list("claude-3-opus", _AUTO_ENABLE_THINKING_MODELS) is False
+    assert _model_in_list("deepseek-chat", _AUTO_ENABLE_THINKING_MODELS) is False
 
 
 def test_model_in_list_case_insensitive():
-    assert _model_in_list("DeepSeek-V4-Pro", _THINKING_MODELS) is True
-    assert _model_in_list("DEEPSEEK-R1", _THINKING_MODELS) is True
+    assert _model_in_list("DeepSeek-V4-Pro", _AUTO_ENABLE_THINKING_MODELS) is True
+    assert _model_in_list("DEEPSEEK-R1", _AUTO_ENABLE_THINKING_MODELS) is True
 
 
 # ===== _is_thinking_enabled =====
@@ -65,7 +65,7 @@ def test_is_thinking_enabled_by_thinking_type_enabled():
         messages=[llmApiUtil.OpenAIMessage.text(llmApiUtil.OpenaiApiRole.USER, "hi")],
         provider_params={"thinking": {"type": "enabled"}},
     )
-    assert _is_thinking_enabled(request, _THINKING_MODELS) is True
+    assert _is_thinking_enabled(request, _AUTO_ENABLE_THINKING_MODELS) is True
 
 
 def test_is_thinking_enabled_by_thinking_type_disabled():
@@ -74,7 +74,7 @@ def test_is_thinking_enabled_by_thinking_type_disabled():
         messages=[llmApiUtil.OpenAIMessage.text(llmApiUtil.OpenaiApiRole.USER, "hi")],
         provider_params={"thinking": {"type": "disabled"}},
     )
-    assert _is_thinking_enabled(request, _THINKING_MODELS) is False
+    assert _is_thinking_enabled(request, _AUTO_ENABLE_THINKING_MODELS) is False
 
 
 def test_is_thinking_enabled_by_reasoning_effort():
@@ -83,7 +83,7 @@ def test_is_thinking_enabled_by_reasoning_effort():
         messages=[llmApiUtil.OpenAIMessage.text(llmApiUtil.OpenaiApiRole.USER, "hi")],
         provider_params={"reasoning_effort": "high"},
     )
-    assert _is_thinking_enabled(request, _THINKING_MODELS) is True
+    assert _is_thinking_enabled(request, _AUTO_ENABLE_THINKING_MODELS) is True
 
 
 def test_is_thinking_enabled_by_model_name():
@@ -92,7 +92,7 @@ def test_is_thinking_enabled_by_model_name():
         messages=[llmApiUtil.OpenAIMessage.text(llmApiUtil.OpenaiApiRole.USER, "hi")],
         provider_params={},
     )
-    assert _is_thinking_enabled(request, _THINKING_MODELS) is True
+    assert _is_thinking_enabled(request, _AUTO_ENABLE_THINKING_MODELS) is True
 
 
 def test_is_thinking_enabled_disabled_overrides_model_name():
@@ -102,7 +102,7 @@ def test_is_thinking_enabled_disabled_overrides_model_name():
         messages=[llmApiUtil.OpenAIMessage.text(llmApiUtil.OpenaiApiRole.USER, "hi")],
         provider_params={"thinking": {"type": "disabled"}},
     )
-    assert _is_thinking_enabled(request, _THINKING_MODELS) is False
+    assert _is_thinking_enabled(request, _AUTO_ENABLE_THINKING_MODELS) is False
 
 
 def test_is_thinking_enabled_thinking_type_overrides_reasoning_effort():
@@ -112,7 +112,7 @@ def test_is_thinking_enabled_thinking_type_overrides_reasoning_effort():
         messages=[llmApiUtil.OpenAIMessage.text(llmApiUtil.OpenaiApiRole.USER, "hi")],
         provider_params={"thinking": {"type": "enabled"}, "reasoning_effort": "high"},
     )
-    assert _is_thinking_enabled(request, _THINKING_MODELS) is True
+    assert _is_thinking_enabled(request, _AUTO_ENABLE_THINKING_MODELS) is True
 
 
 def test_is_thinking_enabled_no_params_no_thinking_model():
@@ -121,7 +121,7 @@ def test_is_thinking_enabled_no_params_no_thinking_model():
         messages=[llmApiUtil.OpenAIMessage.text(llmApiUtil.OpenaiApiRole.USER, "hi")],
         provider_params={},
     )
-    assert _is_thinking_enabled(request, _THINKING_MODELS) is False
+    assert _is_thinking_enabled(request, _AUTO_ENABLE_THINKING_MODELS) is False
 
 
 def test_is_thinking_enabled_with_empty_provider_params():
@@ -130,7 +130,7 @@ def test_is_thinking_enabled_with_empty_provider_params():
         messages=[llmApiUtil.OpenAIMessage.text(llmApiUtil.OpenaiApiRole.USER, "hi")],
         provider_params={},
     )
-    assert _is_thinking_enabled(request, _THINKING_MODELS) is False
+    assert _is_thinking_enabled(request, _AUTO_ENABLE_THINKING_MODELS) is False
 
 
 # ===== StripRequiredToolChoiceForReasoningRule =====
