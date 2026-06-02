@@ -350,3 +350,33 @@ class TestIntegrationMultiAgentChat(ServiceTestCase):
             assert any(AgentHistoryTag.ROOM_TURN_FINISH in msg.tags for msg in history), "turn 未正常完成"
         finally:
             scheduler._schedule_state = ScheduleState.RUNNING
+
+    async def test_invalid_tool_call_arguments_sanitized_on_serialize(self):
+        """验证 OpenAIToolCall 序列化时自动降级非法 JSON arguments。
+
+        场景：构造一个 arguments 为非法 JSON 的 tool_call，验证：
+        1. function_args 属性返回 '{}'（降级）；
+        2. model_dump() 输出的 arguments 为 '{}'；
+        3. 嵌套在 OpenAIMessage 中时同样降级。
+        """
+        # 无效 JSON 参数
+        tc_invalid = OpenAIToolCall(
+            id="call_invalid_args",
+            function={"name": "send_chat_msg", "arguments": "not valid json {{{"},
+        )
+        assert tc_invalid.function_args == "{}", "function_args 应降级为 '{}'"
+        dumped = tc_invalid.model_dump()
+        assert dumped["function"]["arguments"] == "{}", "model_dump 应降级为 '{}'"
+
+        # 嵌套在 OpenAIMessage 中
+        msg = OpenAIMessage(role=OpenaiApiRole.ASSISTANT, tool_calls=[tc_invalid])
+        msg_dumped = msg.model_dump()
+        assert msg_dumped["tool_calls"][0]["function"]["arguments"] == "{}"
+
+        # 有效 JSON 不受影响
+        tc_valid = OpenAIToolCall(
+            id="call_valid_args",
+            function={"name": "send_chat_msg", "arguments": '{"msg": "hello"}'},
+        )
+        assert tc_valid.function_args == '{"msg": "hello"}'
+        assert tc_valid.model_dump()["function"]["arguments"] == '{"msg": "hello"}'

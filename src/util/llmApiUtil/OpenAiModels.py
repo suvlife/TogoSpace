@@ -1,7 +1,7 @@
 import json
 import logging
 from typing import Any, List, Optional
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_serializer, model_validator
 
 from constants import OpenaiApiRole, ToolCategory
 from util.commonUtil import first_not_none
@@ -47,26 +47,6 @@ class OpenAIMessage(BaseModel):
         注意：reasoning_content 现在也会被序列化，用于 DeepSeek/GLM 等 CoT 模型的思考链回传。
         """
         return self.model_dump(mode="json", exclude_none=True)
-
-    def model_dump(self, **kwargs) -> dict:
-        """重写 model_dump，确保嵌套的 tool_calls.function.arguments 是有效 JSON。"""
-        result = super().model_dump(**kwargs)
-        if "tool_calls" in result and result["tool_calls"]:
-            for tc in result["tool_calls"]:
-                if "function" in tc and isinstance(tc["function"], dict):
-                    args = tc["function"].get("arguments", "{}")
-                    if isinstance(args, str) and args:
-                        try:
-                            json.loads(args)
-                        except (json.JSONDecodeError, ValueError):
-                            logger.warning(
-                                "message.tool_call arguments invalid JSON, fallback to '{}': tool_call_id=%s, function=%s, raw_args=%s",
-                                tc.get("id"), tc.get("function", {}).get("name"), args[:200],
-                            )
-                            tc["function"]["arguments"] = "{}"
-                    elif not args:
-                        tc["function"]["arguments"] = "{}"
-        return result
 
 
 class OpenAIRequest(BaseModel):
@@ -150,6 +130,7 @@ class OpenAIToolCall(BaseModel):
         if isinstance(args, str) and args:
             try:
                 json.loads(args)
+                return args
             except (json.JSONDecodeError, ValueError):
                 logger.warning(
                     "tool_call arguments invalid JSON, fallback to '{}': tool_call_id=%s, function=%s, raw_args=%s",
@@ -157,6 +138,20 @@ class OpenAIToolCall(BaseModel):
                 )
                 return "{}"
         return args or "{}"
+
+    @field_serializer("function")
+    def _serialize_function(self, value: dict) -> dict:
+        """序列化时确保 function.arguments 是有效 JSON。"""
+        result = dict(value)
+        args = result.get("arguments", "{}")
+        if isinstance(args, str) and args:
+            try:
+                json.loads(args)
+            except (json.JSONDecodeError, ValueError):
+                result["arguments"] = "{}"
+        elif not args:
+            result["arguments"] = "{}"
+        return result
 
     @property
     def function_name(self) -> str:
@@ -169,13 +164,6 @@ class OpenAIToolCall(BaseModel):
     @property
     def tool_call_id(self) -> str:
         return self.id
-
-    def model_dump(self, **kwargs) -> dict:
-        """重写 model_dump，确保 function.arguments 是有效 JSON。"""
-        result = super().model_dump(**kwargs)
-        if "function" in result and isinstance(result["function"], dict):
-            result["function"]["arguments"] = self._sanitize_arguments()
-        return result
 
 
 class OpenAIFunctionParameter(BaseModel):
