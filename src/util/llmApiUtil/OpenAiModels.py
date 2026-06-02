@@ -1,12 +1,9 @@
 import json
-import logging
 from typing import Any, List, Optional
-from pydantic import BaseModel, Field, field_serializer, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from constants import OpenaiApiRole, ToolCategory
 from util.commonUtil import first_not_none
-
-logger = logging.getLogger(__name__)
 
 
 # ========== 主要类 ==========
@@ -124,42 +121,13 @@ class OpenAIToolCall(BaseModel):
         assert isinstance(args, str), "tool_call.function.arguments 应为 str"
         return self
 
-    def _sanitize_arguments(self) -> str:
-        """验证 arguments JSON 有效性，无效时降级为 '{}'。"""
-        args = self.function.get("arguments", "{}")
-        if isinstance(args, str) and args:
-            try:
-                json.loads(args)
-                return args
-            except (json.JSONDecodeError, ValueError):
-                logger.warning(
-                    "tool_call arguments invalid JSON, fallback to '{}': tool_call_id=%s, function=%s, raw_args=%s",
-                    self.id, self.function.get("name"), args[:200],
-                )
-                return "{}"
-        return args or "{}"
-
-    @field_serializer("function")
-    def _serialize_function(self, value: dict) -> dict:
-        """序列化时确保 function.arguments 是有效 JSON。"""
-        result = dict(value)
-        args = result.get("arguments", "{}")
-        if isinstance(args, str) and args:
-            try:
-                json.loads(args)
-            except (json.JSONDecodeError, ValueError):
-                result["arguments"] = "{}"
-        elif not args:
-            result["arguments"] = "{}"
-        return result
-
     @property
     def function_name(self) -> str:
         return self.function["name"]
 
     @property
     def function_args(self) -> str:
-        return self._sanitize_arguments()
+        return self.function.get("arguments", "{}")
 
     @property
     def tool_call_id(self) -> str:
