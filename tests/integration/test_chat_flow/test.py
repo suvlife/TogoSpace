@@ -382,17 +382,17 @@ class TestIntegrationMultiAgentChat(ServiceTestCase):
         assert tc_valid.model_dump()["function"]["arguments"] == '{"msg": "hello"}'
 
     async def test_invalid_tool_call_arguments_sanitized_by_rule(self):
-        """验证 SanitizeToolCallArgumentsRule 修复无效 JSON arguments。
+        """验证 RepairToolArgumentsRule 修复无效 JSON arguments。
 
         场景：构造一个 arguments 为非法 JSON 的 tool_call，验证：
         1. 规则能检测到无效 JSON；
         2. 规则修复后 arguments 变为 '{}'；
         3. 有效 JSON 不受影响。
         """
-        from service.llmService.llmRequestRules import SanitizeToolCallArgumentsRule
+        from service.llmService.llmRequestRules import RepairToolArgumentsRule
         from util.llmApiUtil import OpenAIRequest
 
-        rule = SanitizeToolCallArgumentsRule()
+        rule = RepairToolArgumentsRule()
 
         # 无效 JSON 参数
         tc_invalid = OpenAIToolCall(
