@@ -11,6 +11,8 @@ from model.coreModel.gtCoreChatModel import GtCoreAgentDialogContext
 from service.llmService.llmRequestRules import apply_llm_request_rules
 from util import configUtil, llmApiUtil
 
+from litellm.exceptions import ContextWindowExceededError
+
 # LiteLLM custom_llm_provider 映射表
 _TYPE_TO_PROVIDER = {
     LlmServiceType.OPENAI_COMPATIBLE: "openai",
@@ -22,6 +24,38 @@ _TYPE_TO_PROVIDER = {
 logger = logging.getLogger(__name__)
 
 _INFER_RETRY_DELAYS_SECONDS = (2, 4, 8, 16, 32, 32, 32)
+
+# 不需要重试的异常关键词（确定性失败，重试无意义）
+_NON_RETRYABLE_KEYWORDS = (
+    "context_length_exceeded",
+    "maximum context length",
+    "prompt is too long",
+    "input is too long",
+    "input too long",
+    "exceeds the context window",
+    "too many tokens",
+    "context window",
+    "max_tokens",
+    "token limit",
+)
+
+
+def _is_retryable_error(error: Exception) -> bool:
+    """判断异常是否值得重试。
+
+    返回 False 表示确定性失败（如上下文超长、认证失败等），重试无意义。
+    返回 True 表示可能为临时性错误（如限流、网络波动等），值得重试。
+    """
+    # 优先按异常类型判断（精确匹配）
+    if isinstance(error, ContextWindowExceededError):
+        return False
+
+    # 按错误信息关键字判断
+    error_text = str(error).lower()
+    if any(kw in error_text for kw in _NON_RETRYABLE_KEYWORDS):
+        return False
+
+    return True
 
 
 @dataclass
@@ -140,6 +174,10 @@ async def _send_with_retry(
         except Exception as e:
 
             last_error = e
+
+            if not _is_retryable_error(e):
+                raise
+
             if attempt >= total_attempts:
                 raise
 

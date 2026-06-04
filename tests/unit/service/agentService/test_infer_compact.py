@@ -190,7 +190,7 @@ async def test_infer_pre_check_compact_failure_raises():
         patch(_ESTIMATE_PATCH, return_value=TRIGGER_TOKENS + 100),
         patch(_ACTIVITY_PATCH, _mock_activity_service()),
     ):
-        with pytest.raises(RuntimeError, match="pre-check compact 失败"):
+        with pytest.raises(RuntimeError, match="compact 跳过：无可压缩消息"):
             await runner._infer_to_item(output_item, tools=[])
 
     history.insert_compact_summary.assert_not_awaited()
@@ -234,7 +234,7 @@ async def test_infer_post_check_compact_failure_raises():
         patch(_ESTIMATE_PATCH, return_value=5000),
         patch(_ACTIVITY_PATCH, _mock_activity_service()),
     ):
-        with pytest.raises(RuntimeError, match="post-check compact 失败"):
+        with pytest.raises(RuntimeError, match="compact 跳过：无可压缩消息"):
             await runner._infer_to_item(output_item, tools=[])
 
     history.insert_compact_summary.assert_not_awaited()
@@ -364,9 +364,9 @@ async def test_execute_compact_skips_when_no_source():
         patch(_CONFIG_PATCH, return_value=_mock_config()),
         patch(_ACTIVITY_PATCH, _mock_activity_service()),
     ):
-        result = await runner._execute_compact()
+        with pytest.raises(RuntimeError, match="compact 跳过：无可压缩消息"):
+            await runner._execute_compact()
 
-    assert result is False
     history.insert_compact_summary.assert_not_awaited()
 
 
@@ -380,9 +380,8 @@ async def test_execute_compact_inserts_summary_and_trims():
         patch(_INFER_PATCH, AsyncMock(return_value=llmService.InferResult.success(compact_resp))),
         patch(_ACTIVITY_PATCH, _mock_activity_service()),
     ):
-        result = await runner._execute_compact()
+        await runner._execute_compact()
 
-    assert result is True
     history.insert_compact_summary.assert_awaited_once()
 
     call = history.insert_compact_summary.call_args_list[0]
@@ -391,7 +390,7 @@ async def test_execute_compact_inserts_summary_and_trims():
 
 
 @pytest.mark.asyncio
-async def test_execute_compact_failure_returns_false():
+async def test_execute_compact_failure_raises():
     runner, history = _make_runner_and_history()
     error = Exception("LLM service unavailable")
 
@@ -400,7 +399,7 @@ async def test_execute_compact_failure_returns_false():
         patch(_INFER_PATCH, AsyncMock(return_value=llmService.InferResult.failure(error))),
         patch(_ACTIVITY_PATCH, _mock_activity_service()),
     ):
-        result = await runner._execute_compact()
+        with pytest.raises(RuntimeError):
+            await runner._execute_compact()
 
-    assert result is False
     history.insert_compact_summary.assert_not_awaited()

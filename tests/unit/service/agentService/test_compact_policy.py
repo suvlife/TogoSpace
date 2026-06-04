@@ -176,13 +176,12 @@ async def test_compact_messages_success():
 
 @pytest.mark.asyncio
 async def test_compact_messages_infer_failed():
-    """LLM 推理失败，返回 None。"""
+    """LLM 推理失败，抛出 RuntimeError。"""
     messages = [llmApiUtil.OpenAIMessage.text(OpenaiApiRole.USER, "历史消息")]
 
     with patch(_INFER_PATCH, AsyncMock(return_value=llmService.InferResult.failure(Exception("API error")))):
-        result = await compact_messages(messages, "system_prompt", "gpt-4o")
-
-    assert result is None
+        with pytest.raises(RuntimeError):
+            await compact_messages(messages, "system_prompt", "gpt-4o")
 
 
 @pytest.mark.asyncio
@@ -211,17 +210,15 @@ async def test_compact_messages_tool_calls_in_response_treated_as_failure():
     ]
 
     with patch(_INFER_PATCH, AsyncMock(return_value=llmService.InferResult.success(tool_call_response))):
-        result = await compact_messages(messages, "system_prompt", "gpt-4o", tools=[_make_tool()])
-
-    assert result is None
+        with pytest.raises(RuntimeError, match="tool_calls"):
+            await compact_messages(messages, "system_prompt", "gpt-4o", tools=[_make_tool()])
 
 
 @pytest.mark.asyncio
 async def test_compact_messages_exception():
-    """LLM 调用抛出异常，返回 None。"""
+    """LLM 调用抛出异常，异常向上传播（不再被吞咽）。"""
     messages = [llmApiUtil.OpenAIMessage.text(OpenaiApiRole.USER, "历史消息")]
 
     with patch(_INFER_PATCH, AsyncMock(side_effect=Exception("network error"))):
-        result = await compact_messages(messages, "system_prompt", "gpt-4o")
-
-    assert result is None
+        with pytest.raises(Exception, match="network error"):
+            await compact_messages(messages, "system_prompt", "gpt-4o")

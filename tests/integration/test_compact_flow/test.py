@@ -195,9 +195,7 @@ class TestCompactFlow(ServiceTestCase):
             )),
             mock.patch(_ACTIVITY_PATCH, _mock_activity_service()),
         ):
-            result = await runner._execute_compact()
-
-        assert result is True
+            await runner._execute_compact()
 
         # trim 后 history 中应有且仅有 1 条 COMPACT_SUMMARY 消息
         compact_items = [item for item in history if AgentHistoryTag.COMPACT_SUMMARY in item.tags]

@@ -536,9 +536,7 @@ class AgentTurnRunner:
                         overflow_meta.last_retry_error = request_retry_meta.last_retry_error
                     await self._finish_activity(activity_id, status=AgentActivityStatus.FAILED, error_message=infer_result.error_message, metadata_patch=overflow_meta)
 
-                    compact_ok = await self._execute_compact()
-                    if not compact_ok:
-                        raise RuntimeError(f"overflow compact 失败: agent_id={self.gt_agent.id}") from error
+                    await self._execute_compact()
                     messages = history.build_infer_messages()
                     estimated_tokens = compact.estimate_tokens(resolved_model, messages, self.system_prompt)
                     if estimated_tokens >= hard_limit_tokens:
@@ -857,9 +855,7 @@ class AgentTurnRunner:
             f"{check_stage} compact 触发: {self.gt_agent.name}(agent_id={self.gt_agent.id}), "
             f"prompt_tokens={trigger_prompt_tokens}, trigger={trigger_tokens}"
         )
-        compact_ok = await self._execute_compact()
-        if not compact_ok:
-            raise RuntimeError(f"{check_stage} compact 失败: agent_id={self.gt_agent.id}")
+        await self._execute_compact()
 
         messages = self._history.build_infer_messages()
         msg_summary = ", ".join(f"{m.role}:{len(m.content or '') if not m.tool_calls else 'TC'}" for m in messages)
@@ -876,8 +872,8 @@ class AgentTurnRunner:
 
         return messages, estimated_tokens, True
 
-    async def _execute_compact(self) -> bool:
-        """执行一次 compact：生成摘要 → 插入 COMPACT_SUMMARY → 内存裁剪。返回是否成功。"""
+    async def _execute_compact(self) -> None:
+        """执行一次 compact：生成摘要 → 插入 COMPACT_SUMMARY → 内存裁剪。失败时 raise。"""
         resolved_model, llm_config, _, _ = self._resolve_compact_config()
 
         compact_activity = await agentActivityService.add_activity(
@@ -888,21 +884,23 @@ class AgentTurnRunner:
         if compact_plan is None:
             logger.warning("compact 跳过：无可压缩消息, agent_id=%d", self.gt_agent.id)
             await self._finish_activity(compact_activity.id, status=AgentActivityStatus.FAILED, error_message="无可压缩消息")
-            return False
+            raise RuntimeError("compact 跳过：无可压缩消息")
 
         # 摘要 token 上限动态设为上下文长度的 10%，随模型配置自动伸缩
         compact_max_tokens = max(1, int(llm_config.context_window_tokens * 0.1))
-        summary_text = await compact.compact_messages(
-            messages=compact_plan.source_messages,
-            system_prompt=self.system_prompt,
-            model=resolved_model,
-            tools=self.tool_registry.export_openai_tools(),
-            max_tokens=compact_max_tokens,
-        )
-        if summary_text is None:
-            logger.warning("compact 失败：LLM 返回无效, agent_id=%d", self.gt_agent.id)
-            await self._finish_activity(compact_activity.id, status=AgentActivityStatus.FAILED, error_message="LLM 返回无效")
-            return False
+        try:
+            summary_text = await compact.compact_messages(
+                messages=compact_plan.source_messages,
+                system_prompt=self.system_prompt,
+                model=resolved_model,
+                tools=self.tool_registry.export_openai_tools(),
+                max_tokens=compact_max_tokens,
+            )
+        except Exception as e:
+            error_detail = str(e)
+            logger.warning("compact 失败: %s, agent_id=%d", error_detail, self.gt_agent.id)
+            await self._finish_activity(compact_activity.id, status=AgentActivityStatus.FAILED, error_message=error_detail)
+            raise
 
         await self._history.insert_compact_summary(
             llmApiUtil.OpenAIMessage.text(llmApiUtil.OpenaiApiRole.USER, summary_text),

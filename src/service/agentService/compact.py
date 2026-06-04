@@ -34,6 +34,7 @@ _OVERFLOW_KEYWORDS = (
     "maximum context length",
     "prompt is too long",
     "input is too long",
+    "input too long",
     "exceeds the context window",
     "too many tokens",
     "context window",
@@ -99,8 +100,8 @@ async def compact_messages(
     model: str,
     tools: list[llmApiUtil.OpenAITool] | None = None,
     max_tokens: int = 13107,  # 默认约为 131072 上下文长度的 10%，建议由调用方按实际 context_window_tokens 动态计算
-) -> str | None:
-    """压缩消息列表，返回已包含引导语的摘要文本，失败时返回 None。
+) -> str:
+    """压缩消息列表，返回已包含引导语的摘要文本，失败时抛出异常。
 
     Args:
         messages: 待压缩的消息列表
@@ -110,7 +111,10 @@ async def compact_messages(
         max_tokens: 摘要最大 token 数，建议为 context_window_tokens 的 10%
 
     Returns:
-        摘要文本（已包含引导语）或 None（压缩失败）
+        摘要文本（已包含引导语）
+
+    Raises:
+        RuntimeError: LLM 推理失败、返回为空、或返回了 tool_calls
     """
     instruction = promptBuilder.build_compact_instruction(max_tokens)
     ctx = GtCoreAgentDialogContext(
@@ -119,14 +123,16 @@ async def compact_messages(
         tools=tools,
         tool_choice="none",
     )
-    try:
-        infer_result = await llmService.infer(model, ctx)
-        if infer_result.ok is False or infer_result.response is None:
-            return None
-        response_message = infer_result.response.choices[0].message
-        if response_message.tool_calls:
-            return None
-        summary = response_message.content or ""
-        return promptBuilder.build_compact_resume_prompt(summary)
-    except Exception:
-        return None
+    infer_result = await llmService.infer(model, ctx)
+
+    if infer_result.ok is False:
+        raise RuntimeError(infer_result.error_message or "LLM inference failed during compact")
+
+    if infer_result.response is None:
+        raise RuntimeError("LLM returned empty response during compact")
+    response_message = infer_result.response.choices[0].message
+
+    if response_message.tool_calls:
+        raise RuntimeError("Model returned tool_calls instead of summary during compact")
+    summary = response_message.content or ""
+    return promptBuilder.build_compact_resume_prompt(summary)

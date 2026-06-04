@@ -459,3 +459,77 @@ async def test_infer_stream_retries_up_to_limit_then_returns_failure(monkeypatch
     assert status_events[0].retry_delay_seconds == 2
     assert status_events[-1].state == InferRequestStateType.RETRYING
     assert status_events[-1].attempt == 8
+
+
+# ─── _is_retryable_error ──────────────────────────────────
+
+from service.llmService.core import _is_retryable_error
+
+
+def test_is_retryable_transient_error_returns_true():
+    assert _is_retryable_error(RuntimeError("temporary failure")) is True
+
+
+def test_is_retryable_context_length_exceeded_keyword_returns_false():
+    assert _is_retryable_error(RuntimeError("context_length_exceeded")) is False
+
+
+def test_is_retryable_input_too_long_with_is_returns_false():
+    assert _is_retryable_error(RuntimeError("input is too long")) is False
+
+
+def test_is_retryable_input_too_long_no_is_returns_false():
+    error_text = "Input too long: 217074 input tokens, limit is 202752 for this model"
+    assert _is_retryable_error(RuntimeError(error_text)) is False
+
+
+def test_is_retryable_other_overflow_keywords_returns_false():
+    for kw in ("maximum context length", "prompt is too long", "exceeds the context window",
+               "too many tokens", "context window", "max_tokens", "token limit"):
+        assert _is_retryable_error(RuntimeError(kw)) is False, f"keyword '{kw}' should be non-retryable"
+
+
+def test_is_retryable_context_window_exceeded_type_returns_false(monkeypatch):
+    class _FakeCWE(Exception):
+        pass
+
+    from service.llmService import core as llm_core
+    monkeypatch.setattr(llm_core, "ContextWindowExceededError", _FakeCWE)
+    assert _is_retryable_error(_FakeCWE()) is False
+
+
+# ─── infer 不重试不可恢复的错误 ──────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_infer_no_retry_on_non_retryable_error(monkeypatch):
+    """infer 遇到不可重试的错误（如上下文超长），只尝试 1 次，不重试。"""
+    attempts = {"count": 0}
+
+    async def _fake_send_request_non_stream(request, url, api_key, custom_llm_provider=None, extra_headers=None, request_id=""):
+        attempts["count"] += 1
+        raise RuntimeError("Input too long: 217074 input tokens, limit is 202752 for this model")
+
+    monkeypatch.setattr(configUtil, "get_app_config", lambda: AppConfig(setting=SettingConfig(
+        default_llm_server="svc",
+        llm_services=[
+            {
+                "name": "svc",
+                "enable": True,
+                "base_url": "http://localhost/v1/chat/completions",
+                "api_key": "key-123",
+                "type": "openai-compatible",
+            }
+        ],
+    )))
+    monkeypatch.setattr(llmService.llmApiUtil, "send_request_non_stream", _fake_send_request_non_stream)
+
+    ctx = GtCoreAgentDialogContext(
+        system_prompt="system prompt",
+        messages=[llmApiUtil.OpenAIMessage.text(llmApiUtil.OpenaiApiRole.USER, "hello")],
+    )
+
+    result = await llmService.infer(None, ctx)
+
+    assert result.ok is False
+    assert attempts["count"] == 1, f"非可重试错误不应重试，但实际尝试了 {attempts['count']} 次"
