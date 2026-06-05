@@ -8,7 +8,7 @@ from service import roomService, agentService
 import service.ormService as ormService
 import service.persistenceService as persistenceService
 from constants import RoomType, RoomState, MessageBusTopic, SpecialAgent
-from dal.db import gtTeamManager, gtAgentManager
+from dal.db import gtTeamManager, gtAgentManager, gtRoomManager
 from model.dbModel.gtAgent import GtAgent
 from model.dbModel.gtTeam import GtTeam
 from ...base import ServiceTestCase
@@ -753,3 +753,48 @@ class TestRoomTurnLogic(ServiceTestCase):
             ]
             assert len(scheduling_calls) == 1
             assert scheduling_calls[0][1]["current_turn_agent_id"] == bob_id
+
+    async def test_stop_if_done_persists_speaker_index_null(self):
+        """
+        测试点：_stop_if_done 触发后，speaker_index=NULL 应被持久化到 DB。
+
+        修复前 bug：handle_finish_request 中 _stop_if_done 返回 True 时直接 return，
+        persist_state 被跳过，DB 中 speaker_index 保留旧值。重启后房间恢复为旧发言人，
+        导致发消息时 get_current_turn_agent_id() 返回 AI 而非 OPERATOR，
+        handle_finish_request 不执行，消息卡在"将尽快注入"。
+
+        修复后：persist_state 被调用，speaker_index=NULL 正确写入 DB。
+        """
+        room_name = "stop_done_persist"
+        agents = ["alice", "bob"]
+        room_key = f"{room_name}@{TEAM}"
+        await self.create_room(TEAM, room_name, agents, room_type=RoomType.GROUP, max_rounds=10)
+        room = roomService.get_room_by_key(room_key)
+        alice_id = await self._get_agent_id("alice")
+        bob_id = await self._get_agent_id("bob")
+        room_id = room.room_id
+
+        await room.activate_scheduling()
+        assert room.state == RoomState.SCHEDULING
+
+        # 第一轮正常发言，让 persist_state 把 speaker_index 写入 DB（非 NULL 值）
+        with patch("service.messageBus.publish"):
+            await room.add_message(alice_id, "hello")
+            await room.handle_finish_request(alice_id)  # has_content=True → 正常流 → persist
+        # 验证 DB 已有非 NULL 值
+        _, db_speaker = await gtRoomManager.get_room_state(room_id)
+        assert db_speaker is not None, "前置条件：DB 应已有非 NULL speaker_index"
+
+        # bob 跳过 → alice 跳过 → 全员跳过 → _stop_if_done 触发
+        with patch("service.messageBus.publish"):
+            await room.handle_finish_request(bob_id)     # bob skip → pos=0, persist
+            ok = await room.handle_finish_request(alice_id)  # alice skip → 全员跳过 → _stop_if_done
+        assert ok is True
+        assert room.state == RoomState.IDLE
+
+        # 修复前：_stop_if_done 返回 True 后直接 return，不 persist，DB 还是旧的非 NULL 值
+        # 修复后：persist_state 被调用，speaker_index=NULL 写入 DB
+        _, db_speaker_index = await gtRoomManager.get_room_state(room_id)
+        assert db_speaker_index is None, (
+            f"_stop_if_done 后 speaker_index 应持久化为 NULL，但 DB 中为 {db_speaker_index}"
+        )

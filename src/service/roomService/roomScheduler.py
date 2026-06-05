@@ -107,6 +107,7 @@ class RoomScheduler:
             self._current_round_skipped_set.add(current_id)
 
         if self._stop_if_done():
+            await self.persist_state()
             return True
 
         self._last_speaker_id = caller_agent_id

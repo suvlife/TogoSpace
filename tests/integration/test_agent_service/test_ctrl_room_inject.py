@@ -1,9 +1,10 @@
-"""集成测试：agent 处理群聊 turn 期间，控制房间收到 operator 消息应被及时注入。
+"""集成测试：Agent 控制房间的消息注入行为。
 
-复现场景：控制房间处于 IDLE 状态，OPERATOR 发送普通消息（非 insert_immediately），
-消息走正常路径拥有 seq，但旧代码的 loop 只检查 has_pending_immediate_messages，
-导致消息无法被注入到当前正在执行的 turn 中。
+测试场景：
+1. Agent 处理群聊 turn 期间，控制房间收到 OPERATOR 普通消息应被及时注入
+2. Agent IDLE 状态下发送 insert_immediately 消息，消息卡在 pending 无人唤醒（bug 复现）
 """
+import asyncio
 import os
 import sys
 from types import SimpleNamespace
@@ -11,7 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from constants import AgentHistoryTag, OpenaiApiRole, TurnStepResult
+from constants import AgentHistoryTag, AgentStatus, OpenaiApiRole, TurnStepResult
 from dal.db import gtAgentManager, gtTeamManager
 from model.dbModel.gtAgentHistory import GtAgentHistory
 from service import agentService, ormService, persistenceService, presetService, roomService
@@ -99,4 +100,44 @@ class TestCtrlRoomMessageInjectionDuringGroupTurn(ServiceTestCase):
         # 验证：ctrl_room 的未读消息已被消费（注入后游标前进）
         assert not ctrl_room.has_unread_messages(alice.id), (
             "turn loop 应检测到 ctrl_room 的未读消息并注入，注入后 has_unread_messages 应为 False"
+        )
+
+    async def test_insert_immediately_message_stuck_when_agent_idle(self):
+        """复现：Agent IDLE 时 send insert_immediately 消息，消息卡在 pending 无人唤醒。
+
+        验证：消息入了 pending 队列，但 Agent 的消费协程未被启动，
+        导致消息永远停留在"将尽快注入"状态。
+        """
+        alice = await gtAgentManager.get_agent(self.team_id, "alice")
+        alice_agent = agentService.get_agent(alice.id)
+        consumer = alice_agent.task_consumer
+
+        # 确保 consumer 处于 IDLE 状态（没有运行中的消费协程）
+        consumer.stop()
+        await asyncio.sleep(0)
+        assert consumer.status in (AgentStatus.IDLE, None), f"agent 应为 IDLE，实际: {consumer.status}"
+
+        # 获取控制房间（处于 SCHEDULING 状态）
+        ctrl_room, _ = await roomService.get_or_create_control_room(self.team_id, alice.id)
+
+        # 发送 insert_immediately=True 消息
+        with patch("service.messageBus.publish"):
+            await ctrl_room.add_message(
+                ctrl_room.OPERATOR_MEMBER_ID, "紧急消息", insert_immediately=True,
+            )
+
+        # 验证消息已进入 pending 队列
+        assert ctrl_room.has_pending_immediate_messages(alice.id), (
+            "insert_immediately 消息应进入 pending 队列"
+        )
+
+        # 验证消费协程未被唤醒（bug 的核心表现）
+        consumer_task = consumer._aio_consumer_task
+        consumer_not_running = consumer_task is None or consumer_task.done()
+        assert consumer_not_running, (
+            f"BUG: IDLE agent 的 consumer 未被唤醒。"
+            f" consumer_task={consumer_task}, done={consumer_task.done() if consumer_task else 'N/A'}"
+        )
+        assert consumer.status == AgentStatus.IDLE, (
+            f"BUG: agent 仍为 IDLE，未被唤醒。status={consumer.status}"
         )
