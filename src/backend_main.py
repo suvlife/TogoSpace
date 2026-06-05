@@ -173,9 +173,8 @@ async def main(config_dir: str = None, port: int | None = None):
         await schedulerService.start_schedule()
 
     web_server = tornado.httpserver.HTTPServer(route.application)
-    web_server.listen(bind_port, bind_host)
-
     try:
+        web_server.listen(bind_port, bind_host)
         await _shutdown_event.wait()
     finally:
         web_server.stop()

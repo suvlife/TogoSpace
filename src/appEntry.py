@@ -5,6 +5,7 @@
 """
 
 import asyncio
+import errno
 import logging
 import os
 import threading
@@ -55,6 +56,15 @@ def _run_backend() -> None:
         _tray_menu.set_status("status_running")
         loop.run_until_complete(backend_main.main(port=bind_port))
         _tray_menu.set_status("status_stopped")
+    except OSError as e:
+        if e.errno == errno.EADDRINUSE:
+            _logger.error("端口 %d 已被占用，程序退出", bind_port)
+            _show_port_in_use_dialog(bind_port)
+            if _tray_icon is not None:
+                _tray_icon.stop()
+            return
+        _logger.error("后端异常退出: %s", e, exc_info=True)
+        _tray_menu.set_status("status_error", e=e)
     except Exception as e:
         _logger.error("后端异常退出: %s", e, exc_info=True)
         _tray_menu.set_status("status_error", e=e)
@@ -93,6 +103,28 @@ def _make_icon() -> Image.Image:
     draw.rectangle((4, 11, 18, 13), fill=(0, 0, 0, 255))
     draw.rectangle((4, 16, 18, 18), fill=(0, 0, 0, 255))
     return img
+
+# ── 对话框 ─────────────────────────────────────────────────────────────────
+
+def _show_port_in_use_dialog(port: int) -> None:
+    """端口被占用时弹出原生提示框。"""
+    import subprocess
+    import sys
+    msg = i18nUtil.t("port_in_use", port=port)
+    if sys.platform == "darwin":
+        subprocess.run(
+            ["osascript", "-e", f'display alert "{msg}" as critical'],
+            capture_output=True,
+        )
+    else:
+        import tkinter as tk
+        from tkinter import messagebox
+        root = tk.Tk()
+        root.withdraw()
+        try:
+            messagebox.showerror("TogoSpace", msg)
+        finally:
+            root.destroy()
 
 # ── 回调 ───────────────────────────────────────────────────────────────────
 
