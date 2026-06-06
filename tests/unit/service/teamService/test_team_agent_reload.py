@@ -91,7 +91,7 @@ async def test_load_team_agents_allows_startup_without_available_llm(
     tmp_path: Path,
 ) -> None:
     team = SimpleNamespace(id=1, name="demo", config={})
-    gt_agent = SimpleNamespace(id=11, team_id=1, name="alice", role_template_id=21, model="", driver=DriverType.NATIVE, allow_tools=None)
+    gt_agent = SimpleNamespace(id=11, team_id=1, name="alice", role_template_id=21, model="", driver=DriverType.NATIVE, allow_tools=None, allow_skills=[])
     template = SimpleNamespace(id=21, name="alice", model=None, soul="mock soul")
     started: list[int] = []
 
@@ -157,8 +157,8 @@ async def test_load_team_agents_injects_admin_tools_only_for_top_manager(
     tmp_path: Path,
 ) -> None:
     team = SimpleNamespace(id=1, name="demo", config={})
-    alice = SimpleNamespace(id=11, team_id=1, name="alice", role_template_id=21, model="", driver=DriverType.NATIVE, allow_tools=["Category:Read", "Read"])
-    bob = SimpleNamespace(id=12, team_id=1, name="bob", role_template_id=22, model="", driver=DriverType.NATIVE, allow_tools=["Category:Read", "Category:Admin", "save_role_template", "Read"])
+    alice = SimpleNamespace(id=11, team_id=1, name="alice", role_template_id=21, model="", driver=DriverType.NATIVE, allow_tools=["Category:Read", "Read"], allow_skills=[])
+    bob = SimpleNamespace(id=12, team_id=1, name="bob", role_template_id=22, model="", driver=DriverType.NATIVE, allow_tools=["Category:Read", "Category:Admin", "save_role_template", "Read"], allow_skills=[])
     templates = [
         SimpleNamespace(id=21, name="alice_tpl", model=None, soul="alice soul", i18n={}),
         SimpleNamespace(id=22, name="bob_tpl", model=None, soul="bob soul", i18n={}),
