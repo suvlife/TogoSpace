@@ -69,6 +69,7 @@ RUN mkdir -p -m 755 /etc/apt/keyrings \
     tesseract-ocr-chi-tra \
     file \
     imagemagick \
+    jq \
     vim \
     nano \
     && rm -rf /var/lib/apt/lists/*
