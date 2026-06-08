@@ -3,8 +3,8 @@
 #
 # 构建方式：
 #   1. 确保 frontend 子模块已初始化：git submodule update --init --recursive
-#   2. docker build -t togospace:0.1.20 .
-#   3. docker run -d -p 8080:8080 -v togospace-storage:/storage togospace:0.1.20
+#   2. docker build -t togospace:0.3.8 .
+#   3. docker run -d -p 8080:8080 -v togospace-storage:/storage togospace:0.3.8
 
 # ============================================
 # Stage 1: 构建前端
@@ -35,7 +35,7 @@ FROM ubuntu:24.04
 
 LABEL maintainer="TogoSpace Team"
 LABEL description="TogoSpace - Multi-Agent Chat Room Framework"
-LABEL version="0.1.20"
+LABEL version="0.3.8"
 
 # 设置环境变量
 ENV PYTHONUNBUFFERED=1 \

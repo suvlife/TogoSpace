@@ -8,7 +8,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: togospace:0.1.20
+    image: togospace:0.3.8
     container_name: togospace
     restart: unless-stopped
     ports:

@@ -25,14 +25,14 @@ docker compose down
 git submodule update --init --recursive
 
 # 2. 构建镜像
-docker build -t togospace:0.1.20 .
+docker build -t togospace:0.3.8 .
 
 # 3. 启动容器
 docker run -d \
   --name togospace \
   -p 8080:8080 \
   -v togospace-data:/data \
-  togospace:0.1.20
+  togospace:0.3.8
 
 # 4. 查看日志
 docker logs -f togospace
@@ -70,7 +70,7 @@ docker run -d \
   --name togospace \
   -p 8080:8080 \
   -v /path/to/config:/data \
-  togospace:0.1.20
+  togospace:0.3.8
 ```
 
 ### 环境变量
@@ -93,7 +93,7 @@ Docker 镜像使用 `/data` 作为数据存储目录，运行时会自动创建�
 
 ```bash
 docker volume create togospace-data
-docker run -d -p 8080:8080 -v togospace-data:/data togospace:0.1.20
+docker run -d -p 8080:8080 -v togospace-data:/data togospace:0.3.8
 ```
 
 ## 访问服务
