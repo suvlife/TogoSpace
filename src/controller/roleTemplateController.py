@@ -10,14 +10,12 @@ from util import assertUtil
 class CreateRoleTemplateRequest(BaseModel):
     name: str
     soul: str = ""
-    model: str | None = None
 
 
 class ModifyRoleTemplateRequest(BaseModel):
     """修改 role template 的请求体。"""
     name: str
     soul: str = ""
-    model: str | None = None
 
 
 class RoleTemplateListHandler(BaseHandler):
@@ -45,7 +43,6 @@ class RoleTemplateCreateHandler(BaseHandler):
         created = await gtRoleTemplateManager.save_role_template(
             GtRoleTemplate(
                 name=request.name,
-                model=request.model,
                 soul=request.soul,
                 type=RoleTemplateType.USER,
             )
@@ -96,7 +93,6 @@ class RoleTemplateModifyHandler(BaseHandler):
 
         definition.name = next_name
         definition.soul = request.soul
-        definition.model = request.model
 
         updated = await gtRoleTemplateManager.save_role_template(definition)
 

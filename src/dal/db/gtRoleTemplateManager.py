@@ -84,7 +84,6 @@ async def save_role_template(template: GtRoleTemplate) -> GtRoleTemplate:
     await (
         GtRoleTemplate.insert(
             name=template.name,
-            model=template.model,
             soul=template.soul,
             type=template.type,
             i18n=template.i18n or {},
@@ -92,7 +91,6 @@ async def save_role_template(template: GtRoleTemplate) -> GtRoleTemplate:
         .on_conflict(
             conflict_target=[GtRoleTemplate.name],
             update={
-                GtRoleTemplate.model: template.model,
                 GtRoleTemplate.soul: template.soul,
                 GtRoleTemplate.type: template.type,
                 GtRoleTemplate.i18n: template.i18n or {},

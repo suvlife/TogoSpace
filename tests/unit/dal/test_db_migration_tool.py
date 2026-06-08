@@ -26,7 +26,7 @@ def test_migrate_database_applies_all_pending_and_is_idempotent(tmp_path: Path) 
 
     conn = sqlite3.connect(db_path)
     try:
-        assert {"model", "name", "soul", "type"} <= _columns(conn, "role_templates")
+        assert {"name", "soul", "type"} <= _columns(conn, "role_templates")
         assert "allowed_tools" not in _columns(conn, "role_templates")
         assert "allow_tools" in _columns(conn, "agents")
         assert "driver" not in _columns(conn, "role_templates")

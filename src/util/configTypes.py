@@ -118,7 +118,6 @@ class RoleTemplatePreset(BaseModel):
     i18n: I18nData | None = None  # 多语言数据，含 display_name
     soul: str = ""
     prompt_file: str = ""
-    model: Optional[str] = None
 
 
 class LlmServiceConfig(BaseModel):
