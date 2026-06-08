@@ -44,7 +44,7 @@ class TestAutoTimestampMixin(ServiceTestCase):
         await (
             GtRoleTemplate.insert(
                 name="ts_auto",
-                model="glm-4.7",
+                
                 created_at=old_ts,
                 updated_at=old_ts,
             )
@@ -52,24 +52,24 @@ class TestAutoTimestampMixin(ServiceTestCase):
         )
 
         await (
-            GtRoleTemplate.insert(name="ts_auto", model="ignored")
+            GtRoleTemplate.insert(name="ts_auto")
             .on_conflict(
                 conflict_target=[GtRoleTemplate.name],
-                update={GtRoleTemplate.model: "gpt-4o"},
+                update={GtRoleTemplate.soul: "gpt-4o"},
             )
             .aio_execute()
         )
         row = await gtRoleTemplateManager.get_role_template_by_name("ts_auto")
         assert row is not None
-        assert row.model == "gpt-4o"
+        assert row.soul == "gpt-4o"
         assert row.updated_at > old_ts
 
         await (
-            GtRoleTemplate.insert(name="ts_auto", model="ignored")
+            GtRoleTemplate.insert(name="ts_auto")
             .on_conflict(
                 conflict_target=[GtRoleTemplate.name],
                 update={
-                    GtRoleTemplate.model: "gpt-4.1",
+                    GtRoleTemplate.soul: "gpt-4.1",
                     GtRoleTemplate.updated_at: explicit_ts,
                 },
             )
@@ -77,7 +77,7 @@ class TestAutoTimestampMixin(ServiceTestCase):
         )
         row2 = await gtRoleTemplateManager.get_role_template_by_name("ts_auto")
         assert row2 is not None
-        assert row2.model == "gpt-4.1"
+        assert row2.soul == "gpt-4.1"
         assert row2.updated_at == explicit_ts
 
     async def test_db_model_insert_auto_injects_created_and_updated_at(self):
@@ -85,7 +85,7 @@ class TestAutoTimestampMixin(ServiceTestCase):
 
         before_insert = datetime.now()
         row_id = await (
-            GtRoleTemplate.insert(name="insert_auto", model="gpt-4o")
+            GtRoleTemplate.insert(name="insert_auto")
             .aio_execute()
         )
         row = await GtRoleTemplate.aio_get_or_none(GtRoleTemplate.id == row_id)
@@ -97,7 +97,7 @@ class TestAutoTimestampMixin(ServiceTestCase):
         row_id_2 = await (
             GtRoleTemplate.insert(
                 name="insert_explicit",
-                model="glm-4.7",
+                
                 created_at=old_ts,
                 updated_at=old_ts,
             )
@@ -115,39 +115,39 @@ class TestAutoTimestampMixin(ServiceTestCase):
         row_id_1 = await (
             GtRoleTemplate.insert(
                 name="update_kwargs",
-                model="v1",
+                
                 created_at=old_ts,
                 updated_at=old_ts,
             )
             .aio_execute()
         )
         await (
-            GtRoleTemplate.update(model="v2")
+            GtRoleTemplate.update(soul="v2")
             .where(GtRoleTemplate.id == row_id_1)
             .aio_execute()
         )
         row1 = await GtRoleTemplate.aio_get_or_none(GtRoleTemplate.id == row_id_1)
         assert row1 is not None
-        assert row1.model == "v2"
+        assert row1.soul == "v2"
         assert row1.updated_at > old_ts
 
         row_id_2 = await (
             GtRoleTemplate.insert(
                 name="update_dict",
-                model="d1",
+                
                 created_at=old_ts,
                 updated_at=old_ts,
             )
             .aio_execute()
         )
         await (
-            GtRoleTemplate.update({GtRoleTemplate.model: "d2"})
+            GtRoleTemplate.update({GtRoleTemplate.soul: "d2"})
             .where(GtRoleTemplate.id == row_id_2)
             .aio_execute()
         )
         row2 = await GtRoleTemplate.aio_get_or_none(GtRoleTemplate.id == row_id_2)
         assert row2 is not None
-        assert row2.model == "d2"
+        assert row2.soul == "d2"
         assert row2.updated_at > old_ts
 
     async def test_db_model_insert_many_auto_injects_timestamps(self):
@@ -156,8 +156,8 @@ class TestAutoTimestampMixin(ServiceTestCase):
         before_insert = datetime.now()
         await (
             GtRoleTemplate.insert_many([
-                {"name": "many_1", "model": "m1"},
-                {"name": "many_2", "model": "m2"},
+                {"name": "many_1", "soul": "m1"},
+                {"name": "many_2", "soul": "m2"},
             ])
             .aio_execute()
         )
@@ -182,18 +182,18 @@ class TestAutoTimestampMixin(ServiceTestCase):
         await (
             GtRoleTemplate.insert(
                 name="conflict_string_key",
-                model="v1",
+                
                 created_at=old_ts,
                 updated_at=old_ts,
             )
             .aio_execute()
         )
         await (
-            GtRoleTemplate.insert(name="conflict_string_key", model="ignored")
+            GtRoleTemplate.insert(name="conflict_string_key")
             .on_conflict(
                 conflict_target=[GtRoleTemplate.name],
                 update={
-                    GtRoleTemplate.model: "v2",
+                    GtRoleTemplate.soul: "v2",
                     "updated_at": explicit_ts,
                 },
             )
@@ -201,7 +201,7 @@ class TestAutoTimestampMixin(ServiceTestCase):
         )
         row = await gtRoleTemplateManager.get_role_template_by_name("conflict_string_key")
         assert row is not None
-        assert row.model == "v2"
+        assert row.soul == "v2"
         assert row.updated_at == explicit_ts
 
     async def test_db_model_on_conflict_keeps_injection_after_clone_chain(self):
@@ -211,22 +211,22 @@ class TestAutoTimestampMixin(ServiceTestCase):
         await (
             GtRoleTemplate.insert(
                 name="conflict_clone_chain",
-                model="v1",
+                
                 created_at=old_ts,
                 updated_at=old_ts,
             )
             .aio_execute()
         )
         await (
-            GtRoleTemplate.insert(name="conflict_clone_chain", model="ignored")
+            GtRoleTemplate.insert(name="conflict_clone_chain")
             .returning(GtRoleTemplate.id)
             .on_conflict(
                 conflict_target=[GtRoleTemplate.name],
-                update={GtRoleTemplate.model: "v2"},
+                update={GtRoleTemplate.soul: "v2"},
             )
             .aio_execute()
         )
         row = await gtRoleTemplateManager.get_role_template_by_name("conflict_clone_chain")
         assert row is not None
-        assert row.model == "v2"
+        assert row.soul == "v2"
         assert row.updated_at > old_ts

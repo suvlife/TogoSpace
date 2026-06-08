@@ -182,7 +182,6 @@ class TestRoleTemplateTools(ServiceTestCase):
         await gtRoleTemplateManager.save_role_template(
             GtRoleTemplate(
                 name="planner",
-                model="gpt-4o",
                 soul="plan carefully",
                 type=RoleTemplateType.USER,
                 i18n={"display_name": {"zh-CN": "规划师", "en": "Planner"}},
@@ -290,14 +289,12 @@ class TestRoleTemplateTools(ServiceTestCase):
             name="writer",
             type="USER",
             soul="draft docs",
-            model="gpt-4o-mini",
             i18n={"display_name": {"zh-CN": "写手", "en": "Writer"}},
         )
         update_result = await save_role_template(
             name="writer",
             type="SYSTEM",
             soul="draft docs carefully",
-            model="gpt-4.1",
             i18n={"display_name": {"zh-CN": "高级写手", "en": "Senior Writer"}},
             overwrite_existing=True,
         )
@@ -310,7 +307,6 @@ class TestRoleTemplateTools(ServiceTestCase):
         assert detail is not None
         assert detail.type == RoleTemplateType.SYSTEM
         assert detail.soul == "draft docs carefully"
-        assert detail.model == "gpt-4.1"
         assert detail.i18n["display_name"]["zh-CN"] == "高级写手"
 
     async def test_save_role_template_rejects_existing_without_overwrite(self) -> None:
@@ -373,7 +369,6 @@ class TestRoleTemplateTools(ServiceTestCase):
             GtRoleTemplate(
                 name="agent_writer",
                 soul="draft docs",
-                model="gpt-4o-mini",
                 type=RoleTemplateType.USER,
             )
         )

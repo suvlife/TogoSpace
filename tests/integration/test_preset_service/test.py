@@ -84,7 +84,7 @@ class TestPresetTeamImport(ServiceTestCase):
         await GtTeam.delete().aio_execute()
         await GtRoleTemplate.delete().aio_execute()
         # 创建基础角色模板
-        await gtRoleTemplateManager.save_role_template(GtRoleTemplate(name="dummy", model="gpt-4o"))
+        await gtRoleTemplateManager.save_role_template(GtRoleTemplate(name="dummy"))
 
     async def async_teardown_method(self):
         await GtTeam.delete().aio_execute()
@@ -155,7 +155,7 @@ class TestPresetTeamImport(ServiceTestCase):
         assert result.name == "name-match-team"
 
     async def test_export_team_preset_matches_runtime_structure(self):
-        await gtRoleTemplateManager.save_role_template(GtRoleTemplate(name="dummy", model="gpt-4o"))
+        await gtRoleTemplateManager.save_role_template(GtRoleTemplate(name="dummy"))
 
         team_config = TeamPreset(
             uuid="uuid-export-001",
@@ -209,7 +209,6 @@ class TestPresetTeamImport(ServiceTestCase):
         assert exported["config"] == {"working_directory": "/tmp/export-team", "slogan": "先沟通后执行", "rules": "先评审再执行"}
         assert len(exported["rule_templates"]) == 1
         assert exported["rule_templates"][0]["name"] == "dummy"
-        assert exported["rule_templates"][0]["model"] == "gpt-4o"
         assert exported["rule_templates"][0]["soul"] == ""
         assert exported["auto_start"] is True
         assert [agent["name"] for agent in exported["agents"]] == ["agent1", "manager1"]
@@ -249,7 +248,7 @@ class TestDeptTreeValidation(ServiceTestCase):
         await GtAgent.delete().aio_execute()
         await GtRoleTemplate.delete().aio_execute()
         template = await gtRoleTemplateManager.save_role_template(
-            GtRoleTemplate(name="dummy", model="gpt-4o")
+            GtRoleTemplate(name="dummy")
         )
         assert template is not None
 

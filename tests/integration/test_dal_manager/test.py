@@ -58,14 +58,12 @@ class TestDalManagers(ServiceTestCase):
     async def _save_role_template(
         self,
         template_name: str,
-        model: str | None,
         soul: str = "",
         template_type: RoleTemplateType = RoleTemplateType.SYSTEM,
     ) -> GtRoleTemplate:
         return await gtRoleTemplateManager.save_role_template(
             GtRoleTemplate(
                 name=template_name,
-                model=model,
                 soul=soul,
                 type=template_type,
             )
@@ -86,22 +84,22 @@ class TestDalManagers(ServiceTestCase):
 
         saved_1 = await self._save_role_template(
             "alice",
-            "glm-4.7",
+            soul="s1",
         )
         assert saved_1.name == "alice"
-        assert saved_1.model == "glm-4.7"
+        assert saved_1.soul == "s1"
         assert saved_1.type == RoleTemplateType.SYSTEM
 
         saved_2 = await self._save_role_template(
             "alice",
-            "gpt-4o",
+            soul="s2",
         )
         assert saved_2.id == saved_1.id
-        assert saved_2.model == "gpt-4o"
+        assert saved_2.soul == "s2"
 
         row = await gtRoleTemplateManager.get_role_template_by_name("alice")
         assert row is not None
-        assert row.model == "gpt-4o"
+        assert row.soul == "s2"
         assert row.type == RoleTemplateType.SYSTEM
 
     async def test_role_template_table_has_model_column(self):
@@ -110,7 +108,7 @@ class TestDalManagers(ServiceTestCase):
         with sqlite3.connect(self._get_test_db_path()) as conn:
             cols = conn.execute("PRAGMA table_info('role_templates')").fetchall()
         col_names = {c[1] for c in cols}
-        assert "model" in col_names
+        assert "soul" in col_names
         assert "name" in col_names
         assert "type" in col_names
         assert "allowed_tools" not in col_names
@@ -160,8 +158,8 @@ class TestDalManagers(ServiceTestCase):
         await self._reset_tables()
 
         # 先创建角色模板
-        await self._save_role_template("alice", "gpt-4o")
-        await self._save_role_template("bob", "gpt-4o")
+        await self._save_role_template("alice")
+        await self._save_role_template("bob")
 
         team_a = await gtTeamManager.save_team(GtTeam(
             name="team_a",
@@ -205,9 +203,9 @@ class TestDalManagers(ServiceTestCase):
         await self._reset_tables()
 
         # 先创建角色模板
-        await self._save_role_template("alice", "gpt-4o")
-        await self._save_role_template("bob", "gpt-4o")
-        await self._save_role_template("charlie", "gpt-4o")
+        await self._save_role_template("alice")
+        await self._save_role_template("bob")
+        await self._save_role_template("charlie")
 
         payload = TeamPreset(
             name="imported",
@@ -258,8 +256,8 @@ class TestDalManagers(ServiceTestCase):
     async def test_agent_manager_batch_save_agents_uses_insert_many_for_new_rows(self, monkeypatch):
         await self._reset_tables()
 
-        await self._save_role_template("rt_a", "gpt-4o")
-        await self._save_role_template("rt_b", "gpt-4o")
+        await self._save_role_template("rt_a")
+        await self._save_role_template("rt_b")
         team = await gtTeamManager.save_team(GtTeam(name="batch_insert_agents_team"))
 
         agents = await ServiceTestCase.convert_to_gt_agents(team.id, [
@@ -282,7 +280,7 @@ class TestDalManagers(ServiceTestCase):
     async def test_agent_manager_batch_save_agents_rejects_mismatched_team_id(self):
         await self._reset_tables()
 
-        await self._save_role_template("rt_a", "gpt-4o")
+        await self._save_role_template("rt_a")
         team = await gtTeamManager.save_team(GtTeam(name="batch_save_team_id_check"))
 
         role_template_id = await gtRoleTemplateManager.resolve_role_template_id_by_name("rt_a")
@@ -550,9 +548,9 @@ class TestDalManagers(ServiceTestCase):
         await self._reset_tables()
 
         # 先创建角色模板
-        await self._save_role_template("alice", "gpt-4o")
-        await self._save_role_template("bob", "gpt-4o")
-        await self._save_role_template("charlie", "gpt-4o")
+        await self._save_role_template("alice")
+        await self._save_role_template("bob")
+        await self._save_role_template("charlie")
 
         team = await gtTeamManager.save_team(GtTeam(name="agent_team"))
         configs = [
@@ -599,8 +597,8 @@ class TestDalManagers(ServiceTestCase):
         await self._reset_tables()
 
         # 先创建角色模板
-        await self._save_role_template("alice", "gpt-4o")
-        await self._save_role_template("bob", "gpt-4o")
+        await self._save_role_template("alice")
+        await self._save_role_template("bob")
 
         team = await gtTeamManager.save_team(GtTeam(name="msg_team"))
         room = await gtRoomManager.save_room(GtRoom(
@@ -689,7 +687,7 @@ class TestDalManagers(ServiceTestCase):
         await self._reset_tables()
 
         # 先创建角色模板
-        await self._save_role_template("alice", "gpt-4o")
+        await self._save_role_template("alice")
 
         team = await gtTeamManager.save_team(GtTeam(name="history_team"))
         configs = [AgentPreset(name="alice", role_template="alice")]
@@ -729,8 +727,8 @@ class TestDalManagers(ServiceTestCase):
         await self._reset_tables()
 
         # 先创建角色模板
-        await self._save_role_template("alice", "gpt-4o")
-        await self._save_role_template("bob", "gpt-4o")
+        await self._save_role_template("alice")
+        await self._save_role_template("bob")
 
         team = await gtTeamManager.save_team(GtTeam(name="history_team_2"))
         configs = [
@@ -787,7 +785,7 @@ class TestDalManagers(ServiceTestCase):
     async def test_agent_history_manager_update_status_by_id(self):
         await self._reset_tables()
 
-        await self._save_role_template("alice", "gpt-4o")
+        await self._save_role_template("alice")
 
         team = await gtTeamManager.save_team(GtTeam(name="history_team_3"))
         configs = [AgentPreset(name="alice", role_template="alice")]

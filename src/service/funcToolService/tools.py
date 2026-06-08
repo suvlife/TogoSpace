@@ -424,7 +424,6 @@ async def save_role_template(
     name: str,
     type: str,
     soul: str,
-    model: str | None = None,
     i18n: dict | None = None,
     overwrite_existing: bool = False,
     _context: ToolCallContext = None,
@@ -435,7 +434,6 @@ async def save_role_template(
         name: 角色模板名称。作为系统唯一标识符，建议使用英文小写字母和下划线。对应的多语言显示名称请通过 i18n 参数设置。
         type: 角色模板类型。SYSTEM 代表系统内置模版（随系统发布，只读）；USER 代表用户自定义模版（可增删改）。通过此工具操作时，请统一指定为 USER。
         soul: 角色模板的核心提示词。应包含角色的身份定位、职责边界和行为准则，是 Agent 运行的"灵魂"。该内容会作为核心指令注入到对应角色的 System Prompt 中。
-        model: 可选模型覆盖。一般建议保持留空（None），此时将使用 Agent 默认配置的模型。仅在确需强制该角色使用特定模型时设置。
         i18n: 可选多语言数据。示例：{"display_name": {"zh-CN": "高级写手", "en": "Senior Writer"}}
         overwrite_existing: 是否允许覆盖同名模板。默认 false；为 true 时，若同名模板已存在则执行更新。
     """
@@ -463,7 +461,6 @@ async def save_role_template(
     saved = await roleTemplateService.save_role_template(
         GtRoleTemplate(
             name=normalized_name,
-            model=model,
             soul=soul,
             type=role_type,
             i18n=i18n or {},

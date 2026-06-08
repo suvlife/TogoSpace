@@ -79,7 +79,7 @@ async def _init_and_start_agent(
     template_display_name = gt_role_template.display_name
 
     # model 用于日志记录，推理时如果 gt_agent.model 为空则使用配置中的 model
-    model_name = gt_agent.model or gt_role_template.model or default_model or ""
+    model_name = gt_agent.model or default_model or ""
     driver_config = normalize_driver_config(
         {
             "driver": gt_agent.driver,
