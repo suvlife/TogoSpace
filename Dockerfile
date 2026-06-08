@@ -70,6 +70,17 @@ RUN mkdir -p -m 755 /etc/apt/keyrings \
     file \
     imagemagick \
     jq \
+    tree \
+    htop \
+    zip \
+    unzip \
+    rsync \
+    sqlite3 \
+    net-tools \
+    netcat-openbsd \
+    dnsutils \
+    iproute2 \
+    iputils-ping \
     vim \
     nano \
     && rm -rf /var/lib/apt/lists/*
