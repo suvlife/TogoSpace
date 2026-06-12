@@ -355,17 +355,19 @@ async def get_sub_agent_ids(team_id: int, agent_id: int) -> set[int]:
     if tree is None:
         return set()
 
-    def _find_agent_dept(node: GtDept) -> GtDept | None:
-        if agent_id in (node.agent_ids or []):
+    def _find_agent_manager_dept(node: GtDept) -> GtDept | None:
+        """DFS 查找 agent 作为 manager 的部门。"""
+        if node.manager_id == agent_id and agent_id in (node.agent_ids or []):
             return node
         for child in node.children or []:
-            found = _find_agent_dept(child)
+            found = _find_agent_manager_dept(child)
             if found is not None:
                 return found
         return None
 
-    dept = _find_agent_dept(tree)
-    if dept is None or dept.manager_id != agent_id:
+    # 优先查找 agent 担任 manager 的部门
+    dept = _find_agent_manager_dept(tree)
+    if dept is None:
         return set()
 
     all_ids, _ = dept.collect_dept_and_agent_ids()
