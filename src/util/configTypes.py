@@ -181,7 +181,7 @@ class SettingConfig(BaseModel):
     db_path: str = Field(default_factory=_default_db_path)
     workspace_root: str | None = Field(default_factory=_default_workspace_root)
     bind_host: str = "0.0.0.0"  # HTTP 服务绑定地址
-    bind_port: int = 8080       # HTTP 服务绑定端口
+    bind_port: int = 8180       # HTTP 服务绑定端口
 
     def model_post_init(self, __context: Any) -> None:
         if not self.db_path.strip():
