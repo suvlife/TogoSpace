@@ -168,6 +168,13 @@ class AuthConfig(BaseModel):
     token: str = ""
 
 
+class DevConfig(BaseModel):
+    """开发配置，用于调试和测试。"""
+    model_config = ConfigDict(extra="ignore")
+
+    latest_release: str = ""  # 手动指定最新版本号，用于测试自动升级 UI；为空时走 GitHub API
+
+
 class SettingConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -183,7 +190,7 @@ class SettingConfig(BaseModel):
     bind_host: str = "0.0.0.0"  # HTTP 服务绑定地址
     bind_port: int = 8180       # HTTP 服务绑定端口
     auto_check_update: bool = True  # 启动时自动检查更新
-    dev: dict[str, Any] = Field(default_factory=dict)  # 开发配置字典，如 latest_release 用于测试更新 UI
+    dev: DevConfig = Field(default_factory=DevConfig)
 
     def model_post_init(self, __context: Any) -> None:
         if not self.db_path.strip():
