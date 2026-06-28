@@ -182,6 +182,7 @@ class SettingConfig(BaseModel):
     workspace_root: str | None = Field(default_factory=_default_workspace_root)
     bind_host: str = "0.0.0.0"  # HTTP 服务绑定地址
     bind_port: int = 8180       # HTTP 服务绑定端口
+    auto_check_update: bool = True  # 启动时自动检查更新
 
     def model_post_init(self, __context: Any) -> None:
         if not self.db_path.strip():

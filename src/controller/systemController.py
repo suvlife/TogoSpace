@@ -3,7 +3,7 @@ import os
 
 from controller.baseController import BaseHandler
 from constants import ScheduleState
-from service import ormService, schedulerService
+from service import ormService, schedulerService, updateService
 from util import configUtil
 from version import __version__
 
@@ -32,6 +32,7 @@ class SystemStatusHandler(BaseHandler):
             "hide_sensitive_info": demo_mode.hide_sensitive,
             "development_mode": setting.development_mode,
             "version": __version__,
+            "auto_check_update": setting.auto_check_update,
         }
         if initialized:
             response["default_llm_server"] = setting.default_llm_server
@@ -68,3 +69,25 @@ class SystemDatabaseBackupHandler(BaseHandler):
             backup_path=backup_path,
             backup_file_name=os.path.basename(backup_path),
         )
+
+
+class CheckUpdateHandler(BaseHandler):
+    """GET /system/check_update.json — 检查 GitHub 最新版本。"""
+
+    async def get(self):
+        force = self.get_argument("force", "false").lower() == "true"
+        result = await updateService.check_for_update(force=force)
+        self.return_json(result)
+
+
+class UpdateConfigHandler(BaseHandler):
+    """POST /system/update_config.json — 修改自动检查更新等设置。"""
+
+    async def post(self):
+        import json
+        body = json.loads(self.request.body)
+        auto_check = body.get("auto_check_update")
+        if auto_check is not None:
+            configUtil.update_setting(lambda s: setattr(s, "auto_check_update", bool(auto_check)))
+        setting = configUtil.get_app_config().setting
+        self.return_success(auto_check_update=setting.auto_check_update)
