@@ -756,9 +756,13 @@ class AgentTurnRunner:
             schedule_task=self._current_task,
         )
         exec_result:ToolExecutionResult = await self.tool_registry.execute_tool_call(tool_call, context)
+
+        # 工具结果截断：过长的原始内容会显著增加后续 prompt token，按策略截断后存入 history
+        # 完整结果保留在 activity 记录中备查
+        history_result = self._truncate_tool_result_for_history(exec_result.result, tool_name=tool_name)
         final_message = llmApiUtil.OpenAIMessage.tool_result(
             exec_result.tool_call_id,
-            json.dumps(exec_result.result, ensure_ascii=False),
+            json.dumps(history_result, ensure_ascii=False),
         )
         await self._history.finalize_history_item(
             history_id=output_item.id,
@@ -783,7 +787,37 @@ class AgentTurnRunner:
             return TurnStepResult.TOOL_EXECUTE_FAILED_FINISH
         return TurnStepResult.TOOL_EXECUTE_SUCCESS
 
-    # ─── AgentDriverHost 协议方法 ──────────────────────────
+    @staticmethod
+    def _truncate_tool_result_for_history(result: dict[str, Any], tool_name: str, max_length: int = 6000) -> dict[str, Any]:
+        """对需要存入 history 的工具结果进行截断，避免消耗过多 token。
+
+        完整结果仍保留在 activity 记录中。
+        主要截断对象：web_search / web_fetch / read_file / execute_bash / process_output
+        """
+        if not isinstance(result, dict):
+            return result
+
+        truncatable_tools = {"web_search", "web_fetch", "read_file", "execute_bash", "process_output", "grep_search"}
+        if tool_name not in truncatable_tools:
+            return result
+
+        content_keys = {"content", "message", "results", "stdout", "output"}
+        truncated = dict(result)
+        was_truncated = False
+
+        for key in content_keys:
+            value = truncated.get(key)
+            if value is None:
+                continue
+            text = str(value)
+            if len(text) > max_length:
+                truncated[key] = text[:max_length] + "\n\n[内容已截断，完整结果可在活动记录中查看]"
+                was_truncated = True
+
+        if was_truncated:
+            truncated["_history_truncated"] = True
+        return truncated
+
 
     async def execute_pending_tools(self) -> None:
         """执行最后一条 assistant 消息中的所有 tool calls。

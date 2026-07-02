@@ -43,6 +43,18 @@ No more "black box" operations. Equipped with a modern Web frontend, everything 
 ### 6. Ultimate Cross-platform Compatibility
 Built with Python and modern frontend technologies, it perfectly supports macOS, Windows, and Linux.
 
+### 7. Stock Technical Analysis Team (New)
+Built-in AI team based on four classic technical analysis schools: Wyckoff, Gann, Dow Theory, and Elliott Wave. Supports web search to fetch the latest data for stock trend analysis.
+
+### 8. One-click Multi-provider LLM Config (New)
+Supports mainstream providers including Kimi, Xiaomi MiMo, Volcengine AgentPlan, DeepSeek, Qwen, OpenAI, and Anthropic. Just select from the dropdown in Settings and enter your API key.
+
+### 9. Token Usage Visualization (New)
+The Settings page now has a "Usage" panel showing Prompt / Completion / Total token consumption trends and distribution by Agent / Model.
+
+### 10. Skills Import & Web Search (New)
+Supports uploading zip files to import custom Skills. Agents can call `web_search` / `web_fetch` tools to retrieve real-time web information for more comprehensive analysis.
+
 ---
 
 ## 🚀 Quick Start
@@ -60,17 +72,28 @@ We currently provide a **macOS** Release package for a quick start.
 ### Method 2: Run from Source
 ```bash
 # Clone the repository
-git clone https://github.com/alexazhou/TogoAgent.git
-cd togo-agent
+git clone https://github.com/suvlife/togospace.git
+cd togospace
 
-# Install dependencies
+# Install backend dependencies
 pip install -r requirements.txt
 
-# Start backend service
+# Start backend service (reads dev_storage_root/setting.json by default)
 ./scripts/start_backend.sh
 
 # Start Web console (requires entering frontend directory)
 cd frontend && npm install && npm run dev
+```
+
+Configure Tavily web search (optional):
+```bash
+# Option 1: Environment variable
+export TAVILY_API_KEY=your_tavily_api_key
+./scripts/start_backend.sh
+
+# Option 2: Add to provider_params in setting.json
+# In dev_storage_root/setting.json, add inside any llm_service's provider_params:
+# "tavily_api_key": "your_tavily_api_key"
 ```
 
 ### Method 3: Docker Deployment
@@ -98,9 +121,10 @@ docker run \
 
 - `src/`: Backend core logic, including agent scheduling, drivers, and persistence.
 - `frontend/`: Visualization console based on Vue 3 + TypeScript.
-- `tui/`: Coming Soon High-performance terminal interface based on Textual (Coming Soon).
+- `tui/`: Terminal interface based on Textual.
+- `assets/`: Preset role templates, team configurations, LLM provider catalog, and i18n support.
+- `dev_storage_root/`: Development mode runtime data (setting.json, SQLite, logs, etc.; not committed).
 - `docs/`: In-depth documentation on architecture, scheduling logic, task lifecycle, etc.
-- `assets/`: Preset role templates, team configurations, and i18n support.
 
 ---
 

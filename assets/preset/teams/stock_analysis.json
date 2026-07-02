@@ -1,0 +1,220 @@
+{
+  "name": "股票技术分析团队",
+  "uuid": "preset-stock-analysis-v1",
+  "auto_start": false,
+  "i18n": {
+    "display_name": {
+      "zh-CN": "股票技术分析团队",
+      "en": "Stock Technical Analysis Team"
+    }
+  },
+  "agents": [
+    {
+      "name": "cio",
+      "role_template": "chief_investment_officer",
+      "allow_tools": ["Category:Basic", "Category:Read", "web_search", "web_fetch"],
+      "i18n": {
+        "display_name": {
+          "zh-CN": "首席投资官",
+          "en": "Chief Investment Officer"
+        }
+      }
+    },
+    {
+      "name": "wyckoff",
+      "role_template": "wyckoff_master",
+      "allow_tools": ["Category:Basic", "Category:Read", "web_search", "web_fetch"],
+      "i18n": {
+        "display_name": {
+          "zh-CN": "威科夫大师",
+          "en": "Wyckoff Master"
+        }
+      }
+    },
+    {
+      "name": "gann",
+      "role_template": "gann_master",
+      "allow_tools": ["Category:Basic", "Category:Read", "web_search", "web_fetch"],
+      "i18n": {
+        "display_name": {
+          "zh-CN": "江恩大师",
+          "en": "Gann Master"
+        }
+      }
+    },
+    {
+      "name": "dow",
+      "role_template": "dow_theorist",
+      "allow_tools": ["Category:Basic", "Category:Read", "web_search", "web_fetch"],
+      "i18n": {
+        "display_name": {
+          "zh-CN": "道氏理论家",
+          "en": "Dow Theorist"
+        }
+      }
+    },
+    {
+      "name": "elliott",
+      "role_template": "elliott_wave_master",
+      "allow_tools": ["Category:Basic", "Category:Read", "web_search", "web_fetch"],
+      "i18n": {
+        "display_name": {
+          "zh-CN": "艾略特波浪大师",
+          "en": "Elliott Wave Master"
+        }
+      }
+    },
+    {
+      "name": "vp",
+      "role_template": "volume_price_analyst",
+      "allow_tools": ["Category:Basic", "Category:Read", "web_search", "web_fetch"],
+      "i18n": {
+        "display_name": {
+          "zh-CN": "量价分析师",
+          "en": "Volume-Price Analyst"
+        }
+      }
+    },
+    {
+      "name": "risk",
+      "role_template": "stock_risk_controller",
+      "allow_tools": ["Category:Basic", "Category:Read", "web_search", "web_fetch"],
+      "i18n": {
+        "display_name": {
+          "zh-CN": "风控官",
+          "en": "Risk Controller"
+        }
+      }
+    },
+    {
+      "name": "collector",
+      "role_template": "data_collector",
+      "allow_tools": ["Category:Basic", "Category:Read", "web_search", "web_fetch"],
+      "i18n": {
+        "display_name": {
+          "zh-CN": "数据采集员",
+          "en": "Data Collector"
+        }
+      }
+    }
+  ],
+  "preset_rooms": [
+    {
+      "name": "综合分析室",
+      "agents": ["OPERATOR", "cio", "wyckoff", "dow", "vp", "risk"],
+      "initial_topic": "综合讨论个股或板块的技术面，形成统一投资观点。",
+      "max_rounds": 30,
+      "i18n": {
+        "display_name": {
+          "zh-CN": "综合分析室",
+          "en": "Comprehensive Analysis Room"
+        },
+        "initial_topic": {
+          "zh-CN": "综合讨论个股或板块的技术面，形成统一投资观点。",
+          "en": "Comprehensive technical analysis to form a unified investment view."
+        }
+      }
+    },
+    {
+      "name": "周期与波浪研究室",
+      "agents": ["OPERATOR", "gann", "elliott"],
+      "initial_topic": "从时间周期与波浪结构角度研判中长期趋势与变盘窗口。",
+      "max_rounds": 30,
+      "i18n": {
+        "display_name": {
+          "zh-CN": "周期与波浪研究室",
+          "en": "Cycles and Waves Lab"
+        },
+        "initial_topic": {
+          "zh-CN": "从时间周期与波浪结构角度研判中长期趋势与变盘窗口。",
+          "en": "Study medium-to-long term trends and turning windows via cycles and waves."
+        }
+      }
+    },
+    {
+      "name": "数据采集室",
+      "agents": ["OPERATOR", "collector"],
+      "initial_topic": "让人类操作者向数据采集员下达信息收集任务，获取最新财报、公告、新闻和行业数据。",
+      "max_rounds": 100,
+      "i18n": {
+        "display_name": {
+          "zh-CN": "数据采集室",
+          "en": "Data Collection Room"
+        },
+        "initial_topic": {
+          "zh-CN": "让人类操作者向数据采集员下达信息收集任务，获取最新财报、公告、新闻和行业数据。",
+          "en": "Assign data collection tasks to gather latest financial reports, news and industry data."
+        }
+      }
+    }
+  ],
+  "dept_tree": {
+    "dept_name": "投资决策委员会",
+    "responsibility": "统筹股票技术分析与投资判断",
+    "manager": "cio",
+    "agents": ["cio", "risk"],
+    "children": [
+      {
+        "dept_name": "技术研究组",
+        "responsibility": "从各流派技术分析角度研判价格行为",
+        "manager": "wyckoff",
+        "agents": ["wyckoff", "dow", "vp"],
+        "children": [],
+        "i18n": {
+          "dept_name": {
+            "zh-CN": "技术研究组",
+            "en": "Technical Research"
+          },
+          "responsibility": {
+            "zh-CN": "从各流派技术分析角度研判价格行为",
+            "en": "Analyze price action from multiple technical analysis schools"
+          }
+        }
+      },
+      {
+        "dept_name": "周期研究组",
+        "responsibility": "研究时间周期、波浪结构与变盘窗口",
+        "manager": "gann",
+        "agents": ["gann", "elliott"],
+        "children": [],
+        "i18n": {
+          "dept_name": {
+            "zh-CN": "周期研究组",
+            "en": "Cycle Research"
+          },
+          "responsibility": {
+            "zh-CN": "研究时间周期、波浪结构与变盘窗口",
+            "en": "Study time cycles, Elliott waves and turning windows"
+          }
+        }
+      },
+      {
+        "dept_name": "情报支持组",
+        "responsibility": "负责数据采集与信息验证",
+        "manager": "collector",
+        "agents": ["collector"],
+        "children": [],
+        "i18n": {
+          "dept_name": {
+            "zh-CN": "情报支持组",
+            "en": "Intelligence Support"
+          },
+          "responsibility": {
+            "zh-CN": "负责数据采集与信息验证",
+            "en": "Responsible for data collection and fact verification"
+          }
+        }
+      }
+    ],
+    "i18n": {
+      "dept_name": {
+        "zh-CN": "投资决策委员会",
+        "en": "Investment Decision Committee"
+      },
+      "responsibility": {
+        "zh-CN": "统筹股票技术分析与投资判断",
+        "en": "Coordinate technical analysis and investment decisions"
+      }
+    }
+  }
+}

@@ -43,6 +43,18 @@ TogoSpace 的工具执行层基于 [TSP (Tool Service Protocol)](https://github.
 ### 6. 极致的跨平台兼容性
 基于 Python 与 modern 前端技术构建，完美支持 macOS、Windows 与 Linux 操作系统，随时随地开启你的 AI 协作之旅。
 
+### 7. 股票技术分析团队（新增）
+内置基于威科夫（Wyckoff）、江恩（Gann）、道氏（Dow）、艾略特波浪（Elliott Wave）四大经典技术分析流派的 AI 团队，支持联网抓取最新数据，辅助研判股票走势。
+
+### 8. 一键配置多厂商 LLM（新增）
+支持 Kimi、小米 MiMo、火山引擎 AgentPlan、DeepSeek、通义千问、OpenAI、Anthropic 等主流厂商，设置页下拉选择 + 填入 API Key 即可快速接入。
+
+### 9. Token 用量可视化（新增）
+后台设置页新增「用量统计」面板，直观展示 Prompt / Completion / Total Tokens 消耗趋势、按 Agent / 模型分布。
+
+### 10. Skills 导入与联网搜索（新增）
+支持上传 zip 导入自定义 Skill；Agent 可调用 `web_search` / `web_fetch` 工具获取实时网络信息，让分析更全面、数据更准确。
+
 ---
 
 ## 🚀 快速开始
@@ -60,17 +72,28 @@ TogoSpace 的工具执行层基于 [TSP (Tool Service Protocol)](https://github.
 ### 方法 2：源码运行
 ```bash
 # 克隆仓库
-git clone https://github.com/alexazhou/TogoAgent.git
-cd togo-agent
+git clone https://github.com/suvlife/togospace.git
+cd togospace
 
-# 安装依赖
+# 安装后端依赖
 pip install -r requirements.txt
 
-# 启动后端服务
+# 启动后端服务（默认读取 dev_storage_root/setting.json）
 ./scripts/start_backend.sh
 
 # 启动 Web 控制台（需进入 frontend 目录）
 cd frontend && npm install && npm run dev
+```
+
+配置 Tavily 联网搜索（可选）：
+```bash
+# 方式 1：环境变量
+export TAVILY_API_KEY=your_tavily_api_key
+./scripts/start_backend.sh
+
+# 方式 2：写入 setting.json 的 provider_params
+# 在 dev_storage_root/setting.json 中任意一个 llm_service 的 provider_params 内添加：
+# "tavily_api_key": "your_tavily_api_key"
 ```
 
 ### 方法 3：Docker 部署
@@ -98,10 +121,10 @@ docker run \
 
 - `src/`: 后端核心逻辑，包含 Agent 调度、驱动与持久化。
 - `frontend/`: 基于 Vue 3 + TypeScript 的可视化控制台。
-- `tui/`: Coming Soon 基于 Textual 的高性能终端交互界面 (Coming Soon)。
-
+- `tui/`: 基于 Textual 的终端交互界面。
+- `assets/`: 预设的角色模板、团队配置、LLM 厂商模板与多语言支持。
+- `dev_storage_root/`: 开发模式运行数据（setting.json、SQLite、日志等，不会提交）。
 - `docs/`: 包含架构设计、调度逻辑、任务生命周期等深度文档。
-- `assets/`: 预设的角色模板、团队配置与多语言支持。
 
 ---
 

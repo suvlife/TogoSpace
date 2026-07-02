@@ -341,7 +341,51 @@ class SkillListHandler(BaseHandler):
         })
 
 
-class ToolListHandler(BaseHandler):
+class SkillImportHandler(BaseHandler):
+    """POST /config/skills/import.json — 上传 zip 导入 Skill。"""
+
+    async def post(self) -> None:
+        from pydantic import ValidationError
+        from service import skillImportService
+
+        if self.request.headers.get("Content-Type", "").startswith("multipart/form-data"):
+            force = self.get_argument("force", "false").lower() == "true"
+            file_info = self.request.files.get("file")
+            if not file_info:
+                self.return_with_error(error_code="missing_file", error_desc="请上传 zip 文件")
+                return
+            zip_bytes = file_info[0]["body"]
+        else:
+            try:
+                body = self.parse_request(dict)
+            except ValidationError:
+                self.return_with_error(error_code="invalid_body", error_desc="请求体必须是 JSON")
+                return
+            zip_bytes = body.get("zip_bytes")
+            force = bool(body.get("force", False))
+            if not zip_bytes or not isinstance(zip_bytes, bytes):
+                self.return_with_error(error_code="missing_zip", error_desc="缺少 zip_bytes")
+                return
+
+        try:
+            result = await skillImportService.import_skill_from_zip(zip_bytes, force=force)
+            self.return_json(result)
+        except skillImportService.SkillImportError as e:
+            self.return_with_error(error_code="skill_import_failed", error_desc=str(e))
+
+
+class SkillDeleteHandler(BaseHandler):
+    """POST /config/skills/{name}/delete.json — 删除用户导入的 Skill。"""
+
+    async def post(self, name: str) -> None:
+        from service import skillImportService
+
+        try:
+            result = await skillImportService.delete_user_skill(name)
+            self.return_json(result)
+        except skillImportService.SkillImportError as e:
+            self.return_with_error(error_code="skill_delete_failed", error_desc=str(e))
+
     """GET /config/tools/list.json — 返回系统可用的 Tool 列表。"""
 
     async def get(self) -> None:

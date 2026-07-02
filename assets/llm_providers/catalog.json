@@ -1,0 +1,142 @@
+[
+  {
+    "id": "kimi",
+    "display_name": {
+      "zh-CN": "Kimi (月之暗面)",
+      "en": "Kimi (Moonshot)"
+    },
+    "type": "openai-compatible",
+    "base_url": "https://api.moonshot.cn/v1",
+    "default_model": "kimi-latest",
+    "context_window_tokens": 128000,
+    "reserve_output_tokens": 16384,
+    "compact_trigger_ratio": 0.85,
+    "signup_url": "https://platform.moonshot.cn/",
+    "models": [
+      "kimi-latest",
+      "moonshot-v1-8k",
+      "moonshot-v1-32k",
+      "moonshot-v1-128k"
+    ]
+  },
+  {
+    "id": "xiaomi",
+    "display_name": {
+      "zh-CN": "小米 (MiMo)",
+      "en": "Xiaomi MiMo"
+    },
+    "type": "openai-compatible",
+    "base_url": "https://api.xiaomi.com/v1",
+    "default_model": "mimo-7b",
+    "context_window_tokens": 32768,
+    "reserve_output_tokens": 8192,
+    "compact_trigger_ratio": 0.8,
+    "signup_url": "https://ai.xiaomi.com/",
+    "models": [
+      "mimo-7b",
+      "mimo-32b",
+      "mimo-v2-7b",
+      "mimo-v2-32b"
+    ]
+  },
+  {
+    "id": "volcengine_agentplan",
+    "display_name": {
+      "zh-CN": "火山引擎 AgentPlan",
+      "en": "Volcengine AgentPlan"
+    },
+    "type": "openai-compatible",
+    "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+    "default_model": "doubao-1-5-pro-32k",
+    "context_window_tokens": 32768,
+    "reserve_output_tokens": 8192,
+    "compact_trigger_ratio": 0.8,
+    "signup_url": "https://console.volcengine.com/ark/",
+    "models": [
+      "doubao-1-5-pro-32k",
+      "doubao-1-5-pro-256k",
+      "doubao-1-5-lite-32k",
+      "deepseek-v3-250324",
+      "deepseek-r1-250120"
+    ]
+  },
+  {
+    "id": "deepseek",
+    "display_name": {
+      "zh-CN": "DeepSeek",
+      "en": "DeepSeek"
+    },
+    "type": "deepseek",
+    "base_url": "https://api.deepseek.com/v1",
+    "default_model": "deepseek-chat",
+    "context_window_tokens": 128000,
+    "reserve_output_tokens": 16384,
+    "compact_trigger_ratio": 0.85,
+    "signup_url": "https://platform.deepseek.com/",
+    "models": [
+      "deepseek-chat",
+      "deepseek-coder",
+      "deepseek-reasoner"
+    ]
+  },
+  {
+    "id": "qwen",
+    "display_name": {
+      "zh-CN": "通义千问",
+      "en": "Qwen"
+    },
+    "type": "openai-compatible",
+    "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "default_model": "qwen-plus",
+    "context_window_tokens": 131072,
+    "reserve_output_tokens": 16384,
+    "compact_trigger_ratio": 0.85,
+    "signup_url": "https://dashscope.aliyun.com/",
+    "models": [
+      "qwen-plus",
+      "qwen-max",
+      "qwen-turbo",
+      "qwen-coder-plus"
+    ]
+  },
+  {
+    "id": "openai",
+    "display_name": {
+      "zh-CN": "OpenAI",
+      "en": "OpenAI"
+    },
+    "type": "openai-compatible",
+    "base_url": "https://api.openai.com/v1",
+    "default_model": "gpt-4o",
+    "context_window_tokens": 128000,
+    "reserve_output_tokens": 16384,
+    "compact_trigger_ratio": 0.85,
+    "signup_url": "https://platform.openai.com/",
+    "models": [
+      "gpt-4o",
+      "gpt-4o-mini",
+      "gpt-4-turbo",
+      "o3-mini"
+    ]
+  },
+  {
+    "id": "anthropic",
+    "display_name": {
+      "zh-CN": "Anthropic Claude",
+      "en": "Anthropic Claude"
+    },
+    "type": "anthropic",
+    "base_url": "https://api.anthropic.com/v1",
+    "default_model": "claude-3-5-sonnet-20241022",
+    "context_window_tokens": 200000,
+    "reserve_output_tokens": 16384,
+    "compact_trigger_ratio": 0.9,
+    "signup_url": "https://console.anthropic.com/",
+    "models": [
+      "claude-3-5-sonnet-20241022",
+      "claude-3-5-sonnet-latest",
+      "claude-3-opus-latest",
+      "claude-sonnet-4-20250514"
+    ]
+  }
+]

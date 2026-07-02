@@ -138,7 +138,67 @@ class RepairToolArgumentsRule(LlmRequestRule):
         return request.model_copy(update={"messages": new_messages})
 
 
+class InjectPromptCacheControlRule(LlmRequestRule):
+    """为 Anthropic 模型注入 prompt cache_control。
+
+    当 request.prompt_cache=True 且 provider 为 anthropic 时，
+    将第一条 system 消息的 content 转为 Anthropic 支持的 content blocks 格式，
+    并在最后一个 text block 附加 cache_control: {type: "ephemeral"}。
+    这样重复调用时静态 system prompt 可命中缓存，降低输入 token 成本。
+    """
+
+    def check_match(self, request: llmApiUtil.OpenAIRequest) -> bool:
+        if not request.prompt_cache:
+            return False
+        provider = (request.provider_params or {}).get("custom_llm_provider")
+        if provider != "anthropic":
+            return False
+        return True
+
+    def apply(self, request: llmApiUtil.OpenAIRequest) -> llmApiUtil.OpenAIRequest:
+        new_messages = []
+        cache_injected = False
+
+        for msg in request.messages:
+            if (
+                not cache_injected
+                and msg.role == llmApiUtil.OpenaiApiRole.SYSTEM
+                and isinstance(msg.content, str)
+                and msg.content
+            ):
+                content_blocks: list[dict[str, Any]] = [
+                    {"type": "text", "text": msg.content},
+                    {"type": "text", "text": "", "cache_control": {"type": "ephemeral"}},
+                ]
+                new_messages.append(
+                    llmApiUtil.OpenAIMessage(
+                        role=msg.role,
+                        content=content_blocks,
+                        reasoning_content=msg.reasoning_content,
+                        tool_calls=msg.tool_calls,
+                        tool_call_id=msg.tool_call_id,
+                    )
+                )
+                cache_injected = True
+            else:
+                new_messages.append(msg)
+
+        provider_params = dict(request.provider_params or {})
+        provider_params["cache_control_injection_points"] = [
+            {"location": "message", "role": "system"},
+            {"location": "tool", "tool_index": -1},
+        ]
+
+        return request.model_copy(
+            update={
+                "messages": new_messages,
+                "provider_params": provider_params,
+            }
+        )
+
+
 _RULES: tuple[LlmRequestRule, ...] = (
+    InjectPromptCacheControlRule(),
     StripRequiredToolChoiceForReasoningRule(),
     FillMissingReasoningContentRule(),
     RepairToolArgumentsRule(),

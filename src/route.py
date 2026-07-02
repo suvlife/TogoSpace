@@ -3,7 +3,7 @@ import os
 
 import tornado.web
 
-from controller import roleTemplateController, agentController, roomController, wsController, teamController, deptController, configController, activityController, settingController, systemController, initController, superviseController
+from controller import roleTemplateController, agentController, roomController, wsController, teamController, deptController, configController, activityController, settingController, systemController, initController, superviseController, usageController
 
 import sys as _sys
 if getattr(_sys, "frozen", False):
@@ -56,6 +56,8 @@ application = tornado.web.Application([
     # Global config
     (r"/config/frontend.json",                       configController.ConfigHandler),
     (r"/config/directories.json",                    configController.DirectoriesHandler),
+    (r"/config/llm_providers/catalog.json",          configController.LlmProviderCatalogHandler),
+    (r"/config/llm_services/from_provider.json",     configController.LlmServiceFromProviderHandler),
 
     # LLM Service Config (V12)
     (r"/config/llm_services/list.json",              settingController.LlmServiceListHandler),
@@ -66,6 +68,8 @@ application = tornado.web.Application([
     (r"/config/llm_services/(\d+)/set_default.json",  settingController.LlmServiceSetDefaultHandler),
     (r"/config/language.json",                       settingController.LanguageHandler),
     (r"/config/skills/list.json",                   settingController.SkillListHandler),
+    (r"/config/skills/import.json",                 settingController.SkillImportHandler),
+    (r"/config/skills/([^/]+)/delete.json",          settingController.SkillDeleteHandler),
     (r"/config/tools/list.json",                    settingController.ToolListHandler),
 
     # System Status & Quick Init (V13)
@@ -132,7 +136,12 @@ application = tornado.web.Application([
     # Activities (V11)
     (r"/activities.json",                            activityController.ActivitiesHandler),
     (r"/agents/(\d+)/activities.json",               activityController.AgentActivitiesHandler),
+    (r"/agents/(\d+)/thinking_timeline.json",       activityController.AgentThinkingTimelineHandler),
     (r"/teams/(\d+)/activities.json",                activityController.TeamActivitiesHandler),
+
+    # Usage (Token statistics)
+    (r"/usage/summary.json",                         usageController.UsageSummaryHandler),
+    (r"/usage/total.json",                           usageController.UsageTotalHandler),
 
     # 前端静态文件（必须放最后，SPA fallback）
     (r"/(.*)", _SPAHandler, {"path": _FRONTEND_DIST, "default_filename": "index.html"}),

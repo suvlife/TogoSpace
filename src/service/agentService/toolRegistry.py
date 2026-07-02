@@ -46,6 +46,9 @@ CATEGORY_CONFIG: dict[str, ToolCategory] = {
     "process_output": ToolCategory.EXECUTE,
     "process_stop": ToolCategory.EXECUTE,
     "process_list": ToolCategory.EXECUTE,
+    # Web tools
+    "web_search": ToolCategory.READ,
+    "web_fetch": ToolCategory.READ,
 }
 
 
